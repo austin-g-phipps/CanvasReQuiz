@@ -1,6 +1,10 @@
 # CanvasReQuiz
 
+<b>THIS PROJECT WAS BUILT FOR PERSONAL NECESSITY SO PLEASE LET ME KNOW IF YOU HAVE ISSUES</b>
+
 I built this project using Codex so I could study Canvas quizzes that I knew would be reused on my midterm. The program will work with uploaded canvas quizzes (which you can save by pressing ctrl+s on the graded quiz page) which you should save directly to the root of this project. The saved canvas quiz should have an html file and another content folder that stores assets necessary for the canvas quiz's html to load. This tool should work for any Canvas quiz uploaded this way, but I have only tested on my own quizzes so far. The program is tuned to work better with coding quizzes, so if you are using this project for a different subject, it may be necessary to download this repo and tweak the way the build file works. Furthermore, I don't believe the program currently works with textbox questions where the answer would be manually graded.
+
+CanvasReQuiz is a small local quiz generator that turns saved Canvas quiz review pages into a standalone `practice-quiz.html` study page. It extracts questions you already answered in Canvas, rebuilds them into a cleaner practice interface, shuffles answer order for each round, and lets you retry only the questions you miss.
 
 ### AI MODE
 
@@ -9,8 +13,6 @@ I also wanted to make a mode that can make similar questions using the uploaded 
 - The AI mode has trouble converting images with blocks of code to actual blocks of code
 - Similarly, the AI mode has trouble converting images of trees to ASCII trees
 - The questions will sometimes have incorrect answers, so double-check your own work
-
-CanvasReQuiz is a small local quiz generator that turns saved Canvas quiz review pages into a standalone `practice-quiz.html` study page. It extracts questions you already answered in Canvas, rebuilds them into a cleaner practice interface, shuffles answer order for each round, and lets you retry only the questions you miss.
 
 ## What The Program Does
 
