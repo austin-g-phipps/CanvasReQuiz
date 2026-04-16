@@ -284,16 +284,42 @@ function parseQuestionBlock(block, folderName, quizLabel) {
 }
 
 function collectQuestions() {
-  const quizDirs = fs.readdirSync(ROOT).filter(name => /^Quiz \d+_ Austin Phipps_files$/.test(name)).sort();
+  const quizDirs = fs.readdirSync(ROOT)
+    .filter(name => {
+      const folderPath = path.join(ROOT, name);
+      return fs.statSync(folderPath).isDirectory() && /_files$/i.test(name);
+    })
+    .sort();
   const questions = [];
 
   for (const folderName of quizDirs) {
-    const htmlPath = path.join(ROOT, folderName, '46510.html');
-    if (!fs.existsSync(htmlPath)) {
+    const folderPath = path.join(ROOT, folderName);
+    const htmlFileName = fs.readdirSync(folderPath)
+      .filter(name => /\.html$/i.test(name))
+      .sort((left, right) => {
+        const leftNumeric = /^\d+\.html$/i.test(left) ? 0 : 1;
+        const rightNumeric = /^\d+\.html$/i.test(right) ? 0 : 1;
+
+        if (leftNumeric !== rightNumeric) {
+          return leftNumeric - rightNumeric;
+        }
+
+        return left.localeCompare(right);
+      })
+      .find(name => {
+        const htmlPath = path.join(folderPath, name);
+        const html = fs.readFileSync(htmlPath, 'utf8');
+        return html.includes(QUESTION_HOLDER_MARKER);
+      });
+
+    if (!htmlFileName) {
       continue;
     }
 
-    const quizLabel = folderName.replace('_ Austin Phipps_files', '');
+    const htmlPath = path.join(folderPath, htmlFileName);
+    const quizLabel = folderName
+      .replace(/_files$/i, '')
+      .replace(/_[^_]+$/, '');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const holders = findQuestionHolders(html);
 

@@ -25,7 +25,7 @@ When you run the builder, it scans the archived quiz folders, pulls out question
 
 ## How It Works
 
-`build-practice-quiz.js` looks for folders matching `Quiz <number>_ <user_name>_files` and reads each folder's `46510.html` file as the source of truth.
+`build-practice-quiz.js` scans Canvas export folders ending in `_files`, finds the HTML file inside each folder that actually contains quiz question markup, and uses that as the source of truth.
 
 For each supported question block, the script:
 
