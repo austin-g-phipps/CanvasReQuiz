@@ -1,11 +1,18 @@
 # CanvasReQuiz
 
+<b>THIS PROJECT WAS BUILT FOR PERSONAL NECESSITY SO PLEASE LET ME KNOW IF YOU HAVE ISSUES</b>
+
+I built this project using Codex so I could study Canvas quizzes that I knew would be reused on my midterm. The program will work with uploaded canvas quizzes (which you can save by pressing ctrl+s on the graded quiz page) which you should save directly to the root of this project. The saved canvas quiz should have an html file and another content folder that stores assets necessary for the canvas quiz's html to load. This tool should work for any Canvas quiz uploaded this way, but I have only tested on my own quizzes so far. The program is tuned to work better with coding quizzes, so if you are using this project for a different subject, it may be necessary to download this repo and tweak the way the build file works. Furthermore, I don't believe the program currently works with textbox questions where the answer would be manually graded.
+
 CanvasReQuiz is a small local quiz generator that turns saved Canvas quiz review pages into a standalone `practice-quiz.html` study page. It extracts questions you already answered in Canvas, rebuilds them into a cleaner practice interface, shuffles answer order for each round, and lets you retry only the questions you miss.
 
-The current dataset in this folder is built from Quiz 3 through Quiz 6 and produces:
+### AI MODE
 
-- 49 supported practice items total
-- 14 items marked as previously missed
+I also wanted to make a mode that can make similar questions using the uploaded quizzes as context, but this mode is very finicky and should be considered a beta mode. I only use Gemini's free API to upload my quizzes and generate new questions, so the following issues may be because of the limitations of Gemini-Flash:
+- The AI mode will not provide images for questions that typically need them
+- The AI mode has trouble converting images with blocks of code to actual blocks of code
+- Similarly, the AI mode has trouble converting images of trees to ASCII trees
+- The questions will sometimes have incorrect answers, so double-check your own work
 
 ## What The Program Does
 
@@ -18,7 +25,7 @@ When you run the builder, it scans the archived quiz folders, pulls out question
 
 ## How It Works
 
-`build-practice-quiz.js` looks for folders matching `Quiz <number>_ Austin Phipps_files` and reads each folder's `46510.html` file as the source of truth.
+`build-practice-quiz.js` looks for folders matching `Quiz <number>_ <user_name>_files` and reads each folder's `46510.html` file as the source of truth.
 
 For each supported question block, the script:
 
@@ -108,7 +115,7 @@ Default models in this repo:
 - `build-practice-quiz.js`: Node.js builder that parses the saved Canvas quiz pages and generates the practice page.
 - `practice-quiz.html`: Generated quiz UI.
 - `quiz-ai-config.js`: Optional browser config for AI defaults.
-- `Quiz *_ Austin Phipps.html` and `Quiz *_ Austin Phipps_files/`: Saved Canvas quiz pages and their assets.
+- `Quiz *_  <name>.html` and `Quiz *_ <user_name>_files/`: Saved Canvas quiz pages and their assets.
 
 ## How To Run
 
@@ -130,5 +137,5 @@ If AI generation fails while opening the file directly from disk, serve the fold
 
 - This is a parser for a specific saved Canvas export format, not a general Canvas API client.
 - The extractor depends on Canvas HTML class names and markup structure.
-- Only supported question types are converted.
+- Only supported question types are converted. (textbox questions may be ignored)
 - AI-generated questions are always normalized to single-answer multiple choice, even if the original missed source included matching or multi-answer material.
