@@ -1,0 +1,1141 @@
+const fs = require('fs');
+const path = require('path');
+
+const ROOT = process.cwd();
+const QUESTION_HOLDER_MARKER = '<div role="region" aria-label="Question" class="quiz_sortable question_holder ';
+
+function decodeHtml(value = '') {
+  return value
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function escapeHtml(value = '') {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeSpace(value = '') {
+  return decodeHtml(value)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function rewriteAssetPaths(html, folderName) {
+  return html
+    .replace(/(src|href)="\.\/([^"]+)"/g, `$1="./${folderName}/$2"`)
+    .replace(/url\(\.\/([^)]+)\)/g, `url(./${folderName}/$1)`);
+}
+
+function cleanupFragmentHtml(html) {
+  return html
+    .replace(/^\s*<\/div>\s*/g, '')
+    .replace(/\s*<\/div>\s*$/g, '')
+    .trim();
+}
+
+function serializeForInlineScript(value) {
+  return JSON.stringify(value, null, 2)
+    .replace(/<\//g, '<\\/')
+    .replace(/<!--/g, '<\\!--')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+function findQuestionHolders(html) {
+  const indexes = [];
+  let start = 0;
+
+  while (true) {
+    const index = html.indexOf(QUESTION_HOLDER_MARKER, start);
+    if (index === -1) {
+      break;
+    }
+    indexes.push(index);
+    start = index + QUESTION_HOLDER_MARKER.length;
+  }
+
+  return indexes.map((index, position) => {
+    const nextIndex = indexes[position + 1] ?? html.length;
+    return html.slice(index, nextIndex);
+  });
+}
+
+function getBetween(block, startMarker, endMarker) {
+  const start = block.indexOf(startMarker);
+  if (start === -1) {
+    return '';
+  }
+
+  const from = start + startMarker.length;
+  const end = block.indexOf(endMarker, from);
+  if (end === -1) {
+    return '';
+  }
+
+  return block.slice(from, end);
+}
+
+function parseAnswerFragments(block) {
+  const answersWrapper = getBetween(
+    block,
+    '<div class="answers_wrapper">',
+    '<div class="after_answers">'
+  );
+
+  if (!answersWrapper) {
+    return [];
+  }
+
+  return answersWrapper
+    .split('<div class="answer answer_for_')
+    .slice(1)
+    .map(fragment => `<div class="answer answer_for_${fragment}`);
+}
+
+function parseQuestionStatus(block) {
+  if (/display_question question [^"]* incorrect bordered/.test(block)) {
+    return 'incorrect';
+  }
+  if (/display_question question [^"]* correct bordered/.test(block)) {
+    return 'correct';
+  }
+  return '';
+}
+
+function optionHtmlFromFragment(fragment, folderName) {
+  const answerText = (fragment.match(/<div class="answer_text">([\s\S]*?)<\/div>/) || [])[1] || '';
+  const answerHtml = (fragment.match(/<div class="answer_html">([\s\S]*?)<\/div>/) || [])[1] || '';
+
+  if (answerHtml.trim()) {
+    const label = normalizeSpace(answerText);
+    const labelHtml = label ? `<div class="practice-option-label">${escapeHtml(label)}</div>` : '';
+    return `${labelHtml}${rewriteAssetPaths(answerHtml.trim(), folderName)}`;
+  }
+
+  return escapeHtml(normalizeSpace(answerText));
+}
+
+function parseMultipleChoiceQuestion(block, meta) {
+  const answerFragments = parseAnswerFragments(block);
+  const options = answerFragments.map(fragment => ({
+    html: optionHtmlFromFragment(fragment, meta.folderName),
+    selected: /selected_answer/.test(fragment),
+    correct: /correct_answer/.test(fragment),
+  }));
+
+  const correctIndex = options.findIndex(option => option.correct);
+  const originalWrongAnswer = options.find(option => option.selected && !option.correct);
+
+  if (correctIndex === -1 || options.length < 2) {
+    return [];
+  }
+
+  return [{
+    id: meta.id,
+    key: `${meta.quizSlug}-${meta.id}`,
+    quizLabel: meta.quizLabel,
+    questionLabel: meta.questionLabel,
+    questionType: meta.questionType,
+    inputType: 'single',
+    stemHtml: meta.stemHtml,
+    explanationHtml: meta.explanationHtml,
+    options: options.map(option => option.html),
+    correctIndex,
+    originalWrongAnswer: originalWrongAnswer ? originalWrongAnswer.html : '',
+    wasMissed: meta.wasMissed,
+  }];
+}
+
+function parseMatchingQuestion(block, meta) {
+  const answerFragments = parseAnswerFragments(block);
+  const otherChoices = [...getBetween(block, '<ul class="matching_answer_incorrect_matches_list">', '</ul>')
+    .matchAll(/<li>([\s\S]*?)<\/li>/g)]
+    .map(match => normalizeSpace(match[1]))
+    .filter(Boolean);
+
+  return answerFragments
+    .filter(fragment => /selected_answer/.test(fragment))
+    .map((fragment, index) => {
+      const title = decodeHtml((fragment.match(/title="([^"]*)"/) || [])[1] || '');
+      const wrongMatch = title.match(/^(.*?)\. You selected (.*?)\. The correct answer was (.*?)\.$/);
+      const correctMatch = title.match(/^(.*?)\. You selected (.*?)\. This was the correct answer\.$/);
+
+      if (!wrongMatch && !correctMatch) {
+        return null;
+      }
+
+      const prompt = (wrongMatch?.[1] || correctMatch?.[1] || '').trim();
+      const selected = (wrongMatch?.[2] || correctMatch?.[2] || '').trim();
+      const correct = (wrongMatch?.[3] || correctMatch?.[2] || '').trim();
+      const choices = [...new Set([correct, selected, ...otherChoices].filter(Boolean))];
+
+      if (choices.length < 2) {
+        return null;
+      }
+
+      return {
+        id: `${meta.id}_match_${index + 1}`,
+        key: `${meta.quizSlug}-${meta.id}-match-${index + 1}`,
+        quizLabel: meta.quizLabel,
+        questionLabel: `${meta.questionLabel} (${prompt})`,
+        questionType: 'matching_subquestion',
+        inputType: 'single',
+        stemHtml: `${meta.stemHtml}<div class="practice-subprompt"><strong>${escapeHtml(prompt)}</strong></div>`,
+        explanationHtml: meta.explanationHtml,
+        options: choices.map(choice => escapeHtml(choice)),
+        correctIndex: choices.indexOf(correct),
+        originalWrongAnswer: escapeHtml(selected),
+        wasMissed: meta.wasMissed,
+      };
+    })
+    .filter(Boolean);
+}
+
+function parseMultipleAnswersQuestion(block, meta) {
+  const answerFragments = parseAnswerFragments(block);
+  const options = answerFragments.map(fragment => ({
+    html: optionHtmlFromFragment(fragment, meta.folderName),
+    selected: /selected_answer/.test(fragment),
+    correct: /correct_answer/.test(fragment),
+  }));
+
+  const correctIndices = options
+    .map((option, index) => option.correct ? index : -1)
+    .filter(index => index !== -1);
+
+  if (!correctIndices.length || options.length < 2) {
+    return [];
+  }
+
+  const selectedWrong = options.filter(option => option.selected && !option.correct).map(option => option.html);
+
+  return [{
+    id: meta.id,
+    key: `${meta.quizSlug}-${meta.id}`,
+    quizLabel: meta.quizLabel,
+    questionLabel: meta.questionLabel,
+    questionType: meta.questionType,
+    inputType: 'multiple',
+    stemHtml: meta.stemHtml,
+    explanationHtml: meta.explanationHtml,
+    options: options.map(option => option.html),
+    correctIndices,
+    originalWrongAnswer: selectedWrong.join(', '),
+    wasMissed: meta.wasMissed,
+  }];
+}
+
+function parseQuestionBlock(block, folderName, quizLabel) {
+  const questionMatch = block.match(/<div class="display_question question ([^"]*?) (correct|incorrect) bordered" id="(question_\d+)"/);
+  if (!questionMatch) {
+    return [];
+  }
+
+  const questionType = questionMatch[1].trim();
+  const status = questionMatch[2];
+  const id = questionMatch[3];
+  const questionLabel = normalizeSpace((block.match(/<span class="name question_name"[^>]*>([\s\S]*?)<\/span>/) || [])[1] || 'Question');
+  const stemHtml = rewriteAssetPaths(
+    cleanupFragmentHtml(
+      getBetween(block, `<div id="${id}_question_text" class="question_text user_content enhanced">`, '<div class="answers">')
+    ),
+    folderName
+  );
+  const explanationHtml = rewriteAssetPaths(
+    cleanupFragmentHtml(
+      getBetween(block, '<div class="quiz_comment">', '<div class="clear"></div>')
+    ),
+    folderName
+  );
+
+  const meta = {
+    id,
+    quizSlug: folderName.replace(/[^a-z0-9]+/gi, '-').toLowerCase(),
+    folderName,
+    quizLabel,
+    questionLabel,
+    questionType,
+    stemHtml,
+    explanationHtml,
+    wasMissed: status === 'incorrect',
+  };
+
+  if (questionType === 'matching_question') {
+    return parseMatchingQuestion(block, meta);
+  }
+
+  if (questionType === 'multiple_answers_question') {
+    return parseMultipleAnswersQuestion(block, meta);
+  }
+
+  return parseMultipleChoiceQuestion(block, meta);
+}
+
+function collectQuestions() {
+  const quizDirs = fs.readdirSync(ROOT).filter(name => /^Quiz \d+_ Austin Phipps_files$/.test(name)).sort();
+  const questions = [];
+
+  for (const folderName of quizDirs) {
+    const htmlPath = path.join(ROOT, folderName, '46510.html');
+    if (!fs.existsSync(htmlPath)) {
+      continue;
+    }
+
+    const quizLabel = folderName.replace('_ Austin Phipps_files', '');
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const holders = findQuestionHolders(html);
+
+    for (const holder of holders) {
+      questions.push(...parseQuestionBlock(holder, folderName, quizLabel));
+    }
+  }
+
+  return {
+    allQuestions: questions,
+    missedQuestions: questions.filter(question => question.wasMissed),
+  };
+}
+
+function buildHtml(allQuestions, missedQuestions) {
+  const allQuestionsJson = serializeForInlineScript(allQuestions);
+  const missedQuestionsJson = serializeForInlineScript(missedQuestions);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithms Practice Quiz</title>
+  <style>
+    :root {
+      --canvas-blue: #214166;
+      --canvas-blue-dark: #17314f;
+      --canvas-link: #0d59a0;
+      --canvas-green: #0b6e4f;
+      --canvas-red: #b42318;
+      --canvas-orange: #b54708;
+      --canvas-border: #c7d3dd;
+      --canvas-bg: #eef3f7;
+      --card-bg: #ffffff;
+      --text: #1f2933;
+      --muted: #52606d;
+      --shadow: 0 16px 38px rgba(20, 37, 63, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Lato, "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(13, 89, 160, 0.1), transparent 22rem),
+        linear-gradient(180deg, #f8fbfd 0%, var(--canvas-bg) 100%);
+    }
+
+    .topbar {
+      background: linear-gradient(180deg, var(--canvas-blue) 0%, var(--canvas-blue-dark) 100%);
+      color: white;
+      padding: 1rem 1.5rem;
+      box-shadow: 0 8px 24px rgba(15, 32, 51, 0.25);
+    }
+
+    .topbar-inner,
+    .page,
+    .summary-bar {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+    }
+
+    .topbar p {
+      margin: 0.4rem 0 0;
+      color: rgba(255, 255, 255, 0.86);
+      max-width: 52rem;
+      line-height: 1.45;
+    }
+
+    .summary-bar {
+      display: none;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 1.5rem 0;
+    }
+
+    .summary-bar.visible {
+      display: flex;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .pill {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--canvas-border);
+      border-radius: 999px;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+      box-shadow: 0 8px 20px rgba(20, 37, 63, 0.05);
+    }
+
+    .page {
+      padding: 1rem 1.5rem 3rem;
+    }
+
+    .quiz-shell {
+      display: none;
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(199, 211, 221, 0.8);
+      border-radius: 18px;
+      padding: 1rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .quiz-shell.visible {
+      display: block;
+    }
+
+    .start-shell {
+      max-width: 840px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid rgba(199, 211, 221, 0.8);
+      border-radius: 22px;
+      padding: 1.2rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .start-card {
+      background: white;
+      border: 1px solid var(--canvas-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .start-head {
+      padding: 1.5rem 1.5rem 1rem;
+      background: linear-gradient(180deg, #fafcfe 0%, #f0f6fb 100%);
+      border-bottom: 1px solid #e6edf3;
+    }
+
+    .start-head h2 {
+      margin: 0 0 0.45rem;
+      font-size: clamp(1.35rem, 3vw, 1.8rem);
+    }
+
+    .start-head p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 46rem;
+    }
+
+    .mode-grid {
+      display: grid;
+      gap: 1rem;
+      padding: 1.2rem;
+    }
+
+    .mode-card {
+      border: 1px solid var(--canvas-border);
+      border-radius: 16px;
+      padding: 1.1rem 1.1rem 1rem;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+      box-shadow: 0 10px 24px rgba(20, 37, 63, 0.05);
+    }
+
+    .mode-card h3 {
+      margin: 0 0 0.35rem;
+      font-size: 1.08rem;
+    }
+
+    .mode-card p {
+      margin: 0 0 0.9rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .mode-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0.25rem 1rem;
+    }
+
+    .toolbar-note {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+      max-width: 42rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+    }
+
+    .button-primary {
+      color: white;
+      background: linear-gradient(180deg, #2474c7 0%, #0d59a0 100%);
+      box-shadow: 0 10px 24px rgba(13, 89, 160, 0.24);
+    }
+
+    .button-secondary {
+      background: white;
+      color: var(--canvas-link);
+      border-color: var(--canvas-border);
+    }
+
+    .result-banner {
+      display: none;
+      margin: 0.5rem 0 1rem;
+      padding: 1rem 1.1rem;
+      border-radius: 14px;
+      border: 1px solid var(--canvas-border);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(236, 243, 250, 0.95));
+      box-shadow: var(--shadow);
+    }
+
+    .result-banner.visible {
+      display: block;
+    }
+
+    .result-banner strong {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 1.05rem;
+    }
+
+    .question-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .question-card {
+      background: var(--card-bg);
+      border: 1px solid var(--canvas-border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .question-card.correct {
+      border-color: rgba(11, 110, 79, 0.45);
+    }
+
+    .question-card.incorrect {
+      border-color: rgba(180, 35, 24, 0.42);
+    }
+
+    .question-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.1rem;
+      border-bottom: 1px solid #e6edf3;
+      background: linear-gradient(180deg, #fafcfe 0%, #f3f7fb 100%);
+    }
+
+    .question-title {
+      font-size: 1.02rem;
+      font-weight: 700;
+    }
+
+    .question-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .tag {
+      border-radius: 999px;
+      padding: 0.25rem 0.65rem;
+      background: #edf4fb;
+      color: var(--canvas-link);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .question-body {
+      padding: 1.15rem;
+    }
+
+    .stem {
+      line-height: 1.55;
+      margin-bottom: 1rem;
+    }
+
+    .stem img,
+    .feedback img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .practice-subprompt {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border-left: 4px solid var(--canvas-link);
+      background: #f3f8fd;
+      border-radius: 10px;
+    }
+
+    .option-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .option {
+      border: 1px solid var(--canvas-border);
+      border-radius: 12px;
+      background: #fff;
+      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    .option:hover {
+      border-color: #9bb6cf;
+      box-shadow: 0 8px 18px rgba(20, 37, 63, 0.08);
+    }
+
+    .option.correct {
+      border-color: rgba(11, 110, 79, 0.55);
+      background: rgba(11, 110, 79, 0.06);
+    }
+
+    .option.incorrect {
+      border-color: rgba(180, 35, 24, 0.52);
+      background: rgba(180, 35, 24, 0.06);
+    }
+
+    .option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .option label {
+      display: flex;
+      gap: 0.8rem;
+      align-items: flex-start;
+      padding: 0.9rem 1rem;
+      cursor: pointer;
+    }
+
+    .option-marker {
+      width: 1.15rem;
+      height: 1.15rem;
+      border: 2px solid #8ca4ba;
+      border-radius: 50%;
+      margin-top: 0.15rem;
+      flex: 0 0 auto;
+      background: white;
+    }
+
+    .option input:checked + label .option-marker {
+      border-color: var(--canvas-link);
+      box-shadow: inset 0 0 0 4px var(--canvas-link);
+    }
+
+    .option input[type="checkbox"] + label .option-marker {
+      border-radius: 0.3rem;
+    }
+
+    .option-content {
+      flex: 1 1 auto;
+      min-width: 0;
+      line-height: 1.45;
+    }
+
+    .practice-option-label {
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .feedback {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.95rem 1rem;
+      border-radius: 12px;
+      border: 1px solid #d8e3ec;
+      background: #f8fbfd;
+      line-height: 1.5;
+    }
+
+    .feedback.visible {
+      display: block;
+    }
+
+    .feedback.correct {
+      border-color: rgba(11, 110, 79, 0.35);
+      background: rgba(11, 110, 79, 0.06);
+    }
+
+    .feedback.incorrect {
+      border-color: rgba(180, 35, 24, 0.35);
+      background: rgba(180, 35, 24, 0.06);
+    }
+
+    .feedback-line + .feedback-line {
+      margin-top: 0.45rem;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .status-chip.correct {
+      color: var(--canvas-green);
+      background: rgba(11, 110, 79, 0.1);
+    }
+
+    .status-chip.incorrect {
+      color: var(--canvas-red);
+      background: rgba(180, 35, 24, 0.1);
+    }
+
+    .empty-state {
+      padding: 2rem 1.25rem;
+      text-align: center;
+      color: var(--muted);
+      background: white;
+      border: 1px solid var(--canvas-border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width: 720px) {
+      .topbar,
+      .summary-bar,
+      .page {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+
+      .question-head,
+      .question-body {
+        padding-left: 0.95rem;
+        padding-right: 0.95rem;
+      }
+
+      .option label {
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1>Algorithms Practice Quiz</h1>
+      <p>Built from the questions you missed in your saved Canvas quizzes. Submit to grade yourself, then retry only the ones you still miss.</p>
+    </div>
+  </header>
+
+  <div class="summary-bar">
+  </div>
+
+  <main class="page">
+    <section class="start-shell" id="start-shell">
+      <div class="start-card">
+        <div class="start-head">
+          <h2>Choose A Study Mode</h2>
+          <p>Use the focused mode to drill exactly what you missed before, or take a mixed 20-question practice run from the full set of supported quiz questions.</p>
+        </div>
+        <div class="mode-grid">
+          <div class="mode-card">
+            <h3>Missed Before</h3>
+            <p>Uses the same behavior you liked: only questions you previously missed, with retry-on-missed after submission.</p>
+            <div class="mode-stats">
+              <div class="pill" id="start-missed-count"></div>
+            </div>
+            <button class="button-primary" id="start-missed-button" type="button">Start Missed-Only Quiz</button>
+          </div>
+
+          <div class="mode-card">
+            <h3>All Questions</h3>
+            <p>Builds a fresh 20-question random quiz from the full question pool, including ones you answered correctly before.</p>
+            <div class="mode-stats">
+              <div class="pill" id="start-all-count"></div>
+              <div class="pill">20 random questions per run</div>
+            </div>
+            <button class="button-primary" id="start-all-button" type="button">Start 20 Random Questions</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="summary-bar" id="summary-bar">
+    <div class="pill-row">
+      <div class="pill" id="question-count-pill"></div>
+      <div class="pill" id="quiz-count-pill"></div>
+      <div class="pill" id="mode-pill"></div>
+      <div class="pill">Mode: Canvas-style review</div>
+    </div>
+    </div>
+
+    <div class="quiz-shell" id="quiz-shell">
+      <div class="toolbar">
+        <div class="toolbar-note">
+          Questions are shuffled each time you start over. The retry flow keeps only the ones you missed on your latest attempt.
+        </div>
+        <div class="button-row">
+          <button class="button-primary" id="submit-button" type="button">Submit Quiz</button>
+          <button class="button-secondary" id="retry-button" type="button" disabled>Retry Missed Only</button>
+          <button class="button-secondary" id="reset-button" type="button">Start Over</button>
+        </div>
+      </div>
+
+      <section class="result-banner" id="result-banner" aria-live="polite"></section>
+      <section class="question-list" id="question-list"></section>
+    </div>
+  </main>
+
+  <script>
+    const allQuestions = ${allQuestionsJson};
+    const missedQuestions = ${missedQuestionsJson};
+
+    const state = {
+      mode: '',
+      sourceQuestions: [],
+      activeQuestions: [],
+      lastResults: [],
+      lastSubmitted: false,
+    };
+
+    const startShell = document.getElementById('start-shell');
+    const quizShell = document.getElementById('quiz-shell');
+    const summaryBar = document.getElementById('summary-bar');
+    const resultBanner = document.getElementById('result-banner');
+    const questionList = document.getElementById('question-list');
+    const questionCountPill = document.getElementById('question-count-pill');
+    const quizCountPill = document.getElementById('quiz-count-pill');
+    const modePill = document.getElementById('mode-pill');
+    const submitButton = document.getElementById('submit-button');
+    const retryButton = document.getElementById('retry-button');
+    const resetButton = document.getElementById('reset-button');
+    const startMissedButton = document.getElementById('start-missed-button');
+    const startAllButton = document.getElementById('start-all-button');
+    const startMissedCount = document.getElementById('start-missed-count');
+    const startAllCount = document.getElementById('start-all-count');
+
+    function shuffle(items) {
+      const copy = [...items];
+      for (let index = copy.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+      }
+      return copy;
+    }
+
+    function prepareQuestion(question) {
+      const optionOrder = shuffle(question.options.map((option, index) => ({ option, index })));
+      const renderedCorrectIndices = question.inputType === 'multiple'
+        ? optionOrder
+            .map((entry, index) => question.correctIndices.includes(entry.index) ? index : -1)
+            .filter(index => index !== -1)
+        : undefined;
+      return {
+        ...question,
+        renderedOptions: optionOrder.map(entry => entry.option),
+        renderedCorrectIndex: optionOrder.findIndex(entry => entry.index === question.correctIndex),
+        renderedCorrectIndices,
+      };
+    }
+
+    function showQuizUi() {
+      startShell.style.display = 'none';
+      summaryBar.className = 'summary-bar visible';
+      quizShell.className = 'quiz-shell visible';
+    }
+
+    function pickAllQuestionRound() {
+      return shuffle(allQuestions).slice(0, Math.min(20, allQuestions.length));
+    }
+
+    function startQuiz(mode, questions) {
+      state.mode = mode;
+      state.sourceQuestions = [...questions];
+      state.activeQuestions = questions.map(prepareQuestion);
+      state.lastResults = [];
+      state.lastSubmitted = false;
+      retryButton.disabled = true;
+      showQuizUi();
+      renderBanner();
+      renderQuestions();
+      updatePills();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updatePills() {
+      const quizNames = new Set(state.activeQuestions.map(question => question.quizLabel));
+      questionCountPill.textContent = \`\${state.activeQuestions.length} practice \${state.activeQuestions.length === 1 ? 'question' : 'questions'}\`;
+      quizCountPill.textContent = \`\${quizNames.size} source \${quizNames.size === 1 ? 'quiz' : 'quizzes'}\`;
+      modePill.textContent = state.mode === 'missed'
+        ? 'Round: missed-before mode'
+        : 'Round: 20 random from all questions';
+    }
+
+    function renderBanner(summary) {
+      if (!summary) {
+        resultBanner.className = 'result-banner';
+        resultBanner.innerHTML = '';
+        return;
+      }
+
+      const message = summary.correctCount === summary.total
+        ? 'Everything correct. If you want another pass, start over to reshuffle the same concepts.'
+        : \`\${summary.incorrectCount} \${summary.incorrectCount === 1 ? 'question remains' : 'questions remain'} for the retry round.\`;
+
+      resultBanner.className = 'result-banner visible';
+      resultBanner.innerHTML = \`
+        <strong>Score: \${summary.correctCount} / \${summary.total}</strong>
+        <div>\${message}</div>
+      \`;
+    }
+
+    function renderQuestions() {
+      if (!state.activeQuestions.length) {
+        questionList.innerHTML = \`
+          <div class="empty-state">
+            <strong>No questions to show.</strong>
+            <div>That usually means every missed question in the current round is already correct.</div>
+          </div>
+        \`;
+        return;
+      }
+
+      questionList.innerHTML = state.activeQuestions.map((question, index) => {
+        const result = state.lastResults.find(entry => entry.key === question.key);
+        const cardStatus = result ? (result.correct ? 'correct' : 'incorrect') : '';
+        const feedbackStatus = result ? (result.correct ? 'correct' : 'incorrect') : '';
+        const feedbackVisible = result ? 'visible' : '';
+        const statusChip = result
+          ? \`<span class="status-chip \${result.correct ? 'correct' : 'incorrect'}">\${result.correct ? 'Correct' : 'Incorrect'}</span>\`
+          : '';
+
+        const optionsHtml = question.renderedOptions.map((optionHtml, optionIndex) => {
+          const optionId = \`\${question.key}-option-\${optionIndex}\`;
+          const selectedIndexes = result ? (result.selectedIndices || (result.selectedIndex !== -1 ? [result.selectedIndex] : [])) : [];
+          const checked = selectedIndexes.includes(optionIndex) ? 'checked' : '';
+          let optionClass = 'option';
+
+          if (result) {
+            const isCorrectOption = question.inputType === 'multiple'
+              ? question.renderedCorrectIndices.includes(optionIndex)
+              : optionIndex === question.renderedCorrectIndex;
+
+            if (isCorrectOption) {
+              optionClass += ' correct';
+            } else if (selectedIndexes.includes(optionIndex) && !result.correct) {
+              optionClass += ' incorrect';
+            }
+          }
+
+          const inputType = question.inputType === 'multiple' ? 'checkbox' : 'radio';
+
+          return \`
+            <div class="\${optionClass}">
+              <input type="\${inputType}" id="\${optionId}" name="\${question.key}" value="\${optionIndex}" \${checked} \${state.lastSubmitted ? 'disabled' : ''}>
+              <label for="\${optionId}">
+                <span class="option-marker" aria-hidden="true"></span>
+                <span class="option-content">\${optionHtml}</span>
+              </label>
+            </div>
+          \`;
+        }).join('');
+
+        const selectedText = result && (result.selectedIndices || []).length
+          ? result.selectedIndices.map(index => question.renderedOptions[index]).join('<br>')
+          : (result && result.selectedIndex !== -1
+              ? question.renderedOptions[result.selectedIndex]
+              : '<em>No answer selected.</em>');
+
+        const correctText = question.inputType === 'multiple'
+          ? question.renderedCorrectIndices.map(index => question.renderedOptions[index]).join('<br>')
+          : question.renderedOptions[question.renderedCorrectIndex];
+        const originalWrong = question.originalWrongAnswer
+          ? \`<div class="feedback-line"><strong>Original Canvas miss:</strong> \${question.originalWrongAnswer}</div>\`
+          : '';
+        const explanation = question.explanationHtml
+          ? \`<div class="feedback-line"><strong>Explanation:</strong><div>\${question.explanationHtml}</div></div>\`
+          : '';
+
+        return \`
+          <article class="question-card \${cardStatus}" data-key="\${question.key}">
+            <div class="question-head">
+              <div>
+                <div class="question-title">\${index + 1}. \${question.questionLabel}</div>
+                <div class="question-meta">
+                  <span class="tag">\${question.quizLabel}</span>
+                  <span>\${question.questionType.replaceAll('_', ' ')}</span>
+                </div>
+              </div>
+              <div>\${statusChip}</div>
+            </div>
+            <div class="question-body">
+              <div class="stem">\${question.stemHtml}</div>
+              <div class="option-list">\${optionsHtml}</div>
+              <div class="feedback \${feedbackStatus} \${feedbackVisible}">
+                <div class="feedback-line"><strong>Your answer:</strong> \${selectedText}</div>
+                <div class="feedback-line"><strong>Correct answer:</strong> \${correctText}</div>
+                \${originalWrong}
+                \${explanation}
+              </div>
+            </div>
+          </article>
+        \`;
+      }).join('');
+    }
+
+    function submitQuiz() {
+      const results = state.activeQuestions.map(question => {
+        if (question.inputType === 'multiple') {
+          const selectedIndices = [...document.querySelectorAll(\`input[name="\${CSS.escape(question.key)}"]:checked\`)]
+            .map(node => Number(node.value))
+            .sort((a, b) => a - b);
+          const correctIndices = [...question.renderedCorrectIndices].sort((a, b) => a - b);
+          const correct = selectedIndices.length === correctIndices.length
+            && selectedIndices.every((value, index) => value === correctIndices[index]);
+
+          return {
+            key: question.key,
+            selectedIndices,
+            correct,
+          };
+        }
+
+        const selected = document.querySelector(\`input[name="\${CSS.escape(question.key)}"]:checked\`);
+        const selectedIndex = selected ? Number(selected.value) : -1;
+        return {
+          key: question.key,
+          selectedIndex,
+          selectedIndices: selectedIndex === -1 ? [] : [selectedIndex],
+          correct: selectedIndex === question.renderedCorrectIndex,
+        };
+      });
+
+      state.lastResults = results;
+      state.lastSubmitted = true;
+
+      const correctCount = results.filter(result => result.correct).length;
+      const incorrectCount = results.length - correctCount;
+      retryButton.disabled = incorrectCount === 0;
+
+      renderBanner({
+        total: results.length,
+        correctCount,
+        incorrectCount,
+      });
+      renderQuestions();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function retryMissedOnly() {
+      const missedKeys = new Set(
+        state.lastResults
+          .filter(result => !result.correct)
+          .map(result => result.key)
+      );
+      const missedQuestions = state.activeQuestions.filter(question => missedKeys.has(question.key));
+      startQuiz(state.mode, missedQuestions);
+    }
+
+    submitButton.addEventListener('click', submitQuiz);
+    retryButton.addEventListener('click', retryMissedOnly);
+    resetButton.addEventListener('click', () => {
+      const nextQuestions = state.mode === 'missed' ? [...missedQuestions] : pickAllQuestionRound();
+      startQuiz(state.mode, nextQuestions);
+    });
+    startMissedButton.addEventListener('click', () => startQuiz('missed', missedQuestions));
+    startAllButton.addEventListener('click', () => startQuiz('all', pickAllQuestionRound()));
+
+    startMissedCount.textContent = \`\${missedQuestions.length} previously missed question\${missedQuestions.length === 1 ? '' : 's'}\`;
+    startAllCount.textContent = \`\${allQuestions.length} total supported question\${allQuestions.length === 1 ? '' : 's'}\`;
+  </script>
+</body>
+</html>`;
+}
+
+function main() {
+  const { allQuestions, missedQuestions } = collectQuestions();
+
+  if (!allQuestions.length) {
+    throw new Error('No incorrect questions were found in the saved quiz pages.');
+  }
+
+  const html = buildHtml(allQuestions, missedQuestions);
+  const outputPath = path.join(ROOT, 'practice-quiz.html');
+  fs.writeFileSync(outputPath, html, 'utf8');
+
+  console.log(`Generated ${missedQuestions.length} missed-question items and ${allQuestions.length} total question items in ${outputPath}`);
+}
+
+main();

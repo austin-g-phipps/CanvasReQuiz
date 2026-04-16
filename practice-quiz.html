@@ -1,0 +1,2067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithms Practice Quiz</title>
+  <style>
+    :root {
+      --canvas-blue: #214166;
+      --canvas-blue-dark: #17314f;
+      --canvas-link: #0d59a0;
+      --canvas-green: #0b6e4f;
+      --canvas-red: #b42318;
+      --canvas-orange: #b54708;
+      --canvas-border: #c7d3dd;
+      --canvas-bg: #eef3f7;
+      --card-bg: #ffffff;
+      --text: #1f2933;
+      --muted: #52606d;
+      --shadow: 0 16px 38px rgba(20, 37, 63, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Lato, "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(13, 89, 160, 0.1), transparent 22rem),
+        linear-gradient(180deg, #f8fbfd 0%, var(--canvas-bg) 100%);
+    }
+
+    .topbar {
+      background: linear-gradient(180deg, var(--canvas-blue) 0%, var(--canvas-blue-dark) 100%);
+      color: white;
+      padding: 1rem 1.5rem;
+      box-shadow: 0 8px 24px rgba(15, 32, 51, 0.25);
+    }
+
+    .topbar-inner,
+    .page,
+    .summary-bar {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+    }
+
+    .topbar p {
+      margin: 0.4rem 0 0;
+      color: rgba(255, 255, 255, 0.86);
+      max-width: 52rem;
+      line-height: 1.45;
+    }
+
+    .summary-bar {
+      display: none;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 1.5rem 0;
+    }
+
+    .summary-bar.visible {
+      display: flex;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .pill {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--canvas-border);
+      border-radius: 999px;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.95rem;
+      color: var(--muted);
+      box-shadow: 0 8px 20px rgba(20, 37, 63, 0.05);
+    }
+
+    .page {
+      padding: 1rem 1.5rem 3rem;
+    }
+
+    .quiz-shell {
+      display: none;
+      background: rgba(255, 255, 255, 0.6);
+      border: 1px solid rgba(199, 211, 221, 0.8);
+      border-radius: 18px;
+      padding: 1rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .quiz-shell.visible {
+      display: block;
+    }
+
+    .start-shell {
+      max-width: 840px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid rgba(199, 211, 221, 0.8);
+      border-radius: 22px;
+      padding: 1.2rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .start-card {
+      background: white;
+      border: 1px solid var(--canvas-border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .start-head {
+      padding: 1.5rem 1.5rem 1rem;
+      background: linear-gradient(180deg, #fafcfe 0%, #f0f6fb 100%);
+      border-bottom: 1px solid #e6edf3;
+    }
+
+    .start-head h2 {
+      margin: 0 0 0.45rem;
+      font-size: clamp(1.35rem, 3vw, 1.8rem);
+    }
+
+    .start-head p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 46rem;
+    }
+
+    .mode-grid {
+      display: grid;
+      gap: 1rem;
+      padding: 1.2rem;
+    }
+
+    .mode-card {
+      border: 1px solid var(--canvas-border);
+      border-radius: 16px;
+      padding: 1.1rem 1.1rem 1rem;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+      box-shadow: 0 10px 24px rgba(20, 37, 63, 0.05);
+    }
+
+    .mode-card h3 {
+      margin: 0 0 0.35rem;
+      font-size: 1.08rem;
+    }
+
+    .mode-card p {
+      margin: 0 0 0.9rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .mode-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0.25rem 1rem;
+    }
+
+    .toolbar-note {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+      max-width: 42rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+    }
+
+    .button-primary {
+      color: white;
+      background: linear-gradient(180deg, #2474c7 0%, #0d59a0 100%);
+      box-shadow: 0 10px 24px rgba(13, 89, 160, 0.24);
+    }
+
+    .button-secondary {
+      background: white;
+      color: var(--canvas-link);
+      border-color: var(--canvas-border);
+    }
+
+    .result-banner {
+      display: none;
+      margin: 0.5rem 0 1rem;
+      padding: 1rem 1.1rem;
+      border-radius: 14px;
+      border: 1px solid var(--canvas-border);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(236, 243, 250, 0.95));
+      box-shadow: var(--shadow);
+    }
+
+    .result-banner.visible {
+      display: block;
+    }
+
+    .result-banner strong {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 1.05rem;
+    }
+
+    .question-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .question-card {
+      background: var(--card-bg);
+      border: 1px solid var(--canvas-border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .question-card.correct {
+      border-color: rgba(11, 110, 79, 0.45);
+    }
+
+    .question-card.incorrect {
+      border-color: rgba(180, 35, 24, 0.42);
+    }
+
+    .question-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.1rem;
+      border-bottom: 1px solid #e6edf3;
+      background: linear-gradient(180deg, #fafcfe 0%, #f3f7fb 100%);
+    }
+
+    .question-title {
+      font-size: 1.02rem;
+      font-weight: 700;
+    }
+
+    .question-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .tag {
+      border-radius: 999px;
+      padding: 0.25rem 0.65rem;
+      background: #edf4fb;
+      color: var(--canvas-link);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .question-body {
+      padding: 1.15rem;
+    }
+
+    .stem {
+      line-height: 1.55;
+      margin-bottom: 1rem;
+    }
+
+    .stem img,
+    .feedback img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .practice-subprompt {
+      margin-top: 1rem;
+      padding: 0.85rem 1rem;
+      border-left: 4px solid var(--canvas-link);
+      background: #f3f8fd;
+      border-radius: 10px;
+    }
+
+    .option-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .option {
+      border: 1px solid var(--canvas-border);
+      border-radius: 12px;
+      background: #fff;
+      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    .option:hover {
+      border-color: #9bb6cf;
+      box-shadow: 0 8px 18px rgba(20, 37, 63, 0.08);
+    }
+
+    .option.correct {
+      border-color: rgba(11, 110, 79, 0.55);
+      background: rgba(11, 110, 79, 0.06);
+    }
+
+    .option.incorrect {
+      border-color: rgba(180, 35, 24, 0.52);
+      background: rgba(180, 35, 24, 0.06);
+    }
+
+    .option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .option label {
+      display: flex;
+      gap: 0.8rem;
+      align-items: flex-start;
+      padding: 0.9rem 1rem;
+      cursor: pointer;
+    }
+
+    .option-marker {
+      width: 1.15rem;
+      height: 1.15rem;
+      border: 2px solid #8ca4ba;
+      border-radius: 50%;
+      margin-top: 0.15rem;
+      flex: 0 0 auto;
+      background: white;
+    }
+
+    .option input:checked + label .option-marker {
+      border-color: var(--canvas-link);
+      box-shadow: inset 0 0 0 4px var(--canvas-link);
+    }
+
+    .option input[type="checkbox"] + label .option-marker {
+      border-radius: 0.3rem;
+    }
+
+    .option-content {
+      flex: 1 1 auto;
+      min-width: 0;
+      line-height: 1.45;
+    }
+
+    .practice-option-label {
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .feedback {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.95rem 1rem;
+      border-radius: 12px;
+      border: 1px solid #d8e3ec;
+      background: #f8fbfd;
+      line-height: 1.5;
+    }
+
+    .feedback.visible {
+      display: block;
+    }
+
+    .feedback.correct {
+      border-color: rgba(11, 110, 79, 0.35);
+      background: rgba(11, 110, 79, 0.06);
+    }
+
+    .feedback.incorrect {
+      border-color: rgba(180, 35, 24, 0.35);
+      background: rgba(180, 35, 24, 0.06);
+    }
+
+    .feedback-line + .feedback-line {
+      margin-top: 0.45rem;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .status-chip.correct {
+      color: var(--canvas-green);
+      background: rgba(11, 110, 79, 0.1);
+    }
+
+    .status-chip.incorrect {
+      color: var(--canvas-red);
+      background: rgba(180, 35, 24, 0.1);
+    }
+
+    .empty-state {
+      padding: 2rem 1.25rem;
+      text-align: center;
+      color: var(--muted);
+      background: white;
+      border: 1px solid var(--canvas-border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    @media (max-width: 720px) {
+      .topbar,
+      .summary-bar,
+      .page {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+
+      .question-head,
+      .question-body {
+        padding-left: 0.95rem;
+        padding-right: 0.95rem;
+      }
+
+      .option label {
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1>Algorithms Practice Quiz</h1>
+      <p>Built from the questions you missed in your saved Canvas quizzes. Submit to grade yourself, then retry only the ones you still miss.</p>
+    </div>
+  </header>
+
+  <div class="summary-bar">
+  </div>
+
+  <main class="page">
+    <section class="start-shell" id="start-shell">
+      <div class="start-card">
+        <div class="start-head">
+          <h2>Choose A Study Mode</h2>
+          <p>Use the focused mode to drill exactly what you missed before, or take a mixed 20-question practice run from the full set of supported quiz questions.</p>
+        </div>
+        <div class="mode-grid">
+          <div class="mode-card">
+            <h3>Missed Before</h3>
+            <p>Uses the same behavior you liked: only questions you previously missed, with retry-on-missed after submission.</p>
+            <div class="mode-stats">
+              <div class="pill" id="start-missed-count"></div>
+            </div>
+            <button class="button-primary" id="start-missed-button" type="button">Start Missed-Only Quiz</button>
+          </div>
+
+          <div class="mode-card">
+            <h3>All Questions</h3>
+            <p>Builds a fresh 20-question random quiz from the full question pool, including ones you answered correctly before.</p>
+            <div class="mode-stats">
+              <div class="pill" id="start-all-count"></div>
+              <div class="pill">20 random questions per run</div>
+            </div>
+            <button class="button-primary" id="start-all-button" type="button">Start 20 Random Questions</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="summary-bar" id="summary-bar">
+    <div class="pill-row">
+      <div class="pill" id="question-count-pill"></div>
+      <div class="pill" id="quiz-count-pill"></div>
+      <div class="pill" id="mode-pill"></div>
+      <div class="pill">Mode: Canvas-style review</div>
+    </div>
+    </div>
+
+    <div class="quiz-shell" id="quiz-shell">
+      <div class="toolbar">
+        <div class="toolbar-note">
+          Questions are shuffled each time you start over. The retry flow keeps only the ones you missed on your latest attempt.
+        </div>
+        <div class="button-row">
+          <button class="button-primary" id="submit-button" type="button">Submit Quiz</button>
+          <button class="button-secondary" id="retry-button" type="button" disabled>Retry Missed Only</button>
+          <button class="button-secondary" id="reset-button" type="button">Start Over</button>
+        </div>
+      </div>
+
+      <section class="result-banner" id="result-banner" aria-live="polite"></section>
+      <section class="question-list" id="question-list"></section>
+    </div>
+  </main>
+
+  <script>
+    const allQuestions = [
+  {
+    "id": "question_2478352",
+    "key": "quiz-3-austin-phipps-files-question_2478352",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 2",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">If an Alice's program takes <strong><i>n<\/i><\/strong>&nbsp;time and a Bob’s program takes <strong><i>n*log n<\/i><\/strong>&nbsp;time, whose program is <strong>slower<\/strong>?&nbsp;<\/span>",
+    "explanationHtml": "",
+    "options": [
+      "Alice",
+      "Bob",
+      "We can&#39;t decide it.",
+      "They are the same."
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2478353",
+    "key": "quiz-3-austin-phipps-files-question_2478353",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 3",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that an Alice's program takes <strong><i>5*n<sup>2<\/sup><\/i><\/strong> <strong><i>+ 2*n + 100 <\/i><\/strong>and a Bob’s program takes <strong><i>3*n<sup>2<\/sup><\/i><\/strong>. From the algorithm analysis point of view (= algorithm analysis category) as you learned in the class, whose program is <strong>faster<\/strong>?&nbsp;<\/span>",
+    "explanationHtml": "",
+    "options": [
+      "They are the same.",
+      "Alice",
+      "We can&#39;t decide it.",
+      "Bob"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2478356",
+    "key": "quiz-3-austin-phipps-files-question_2478356",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 6",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that your program conducts the <strong>binary search for a value in a sorted array<\/strong>. The time efficiencies of the best case and worst case of the program are the same.<\/span>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2478357",
+    "key": "quiz-3-austin-phipps-files-question_2478357",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 7",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">You can represent the time efficiency of the <strong>average calculation algorithm<\/strong> which calculates the average of all values stored in a sorted array <strong>using the Big O(= O) notation<\/strong>.<\/span>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "False",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2478360",
+    "key": "quiz-3-austin-phipps-files-question_2478360",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 9",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Consider an algorithm that searches an array to return the number of occurrences of a specific value such as 1234 in the array. You can represent the time efficiency of the algorithm <strong>using the Big Theta (= Θ) notation<\/strong>.<\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2478361",
+    "key": "quiz-3-austin-phipps-files-question_2478361",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 10",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Read the following pseudocode carefully and answer to the following question.<\/span><\/p>\n<p id=\"yui_3_17_2_1_1626389558442_3163\"><span style=\"font-family: &#39;courier new&#39;, courier; font-size: 12pt;\"><span class=\"\">Algorithm DoSomething (A[0..n-1])<br><\/span>1. value ← A[0]<br>2. i ← 1<br>3. while ( i &lt; n ) do<br>4.&nbsp; &nbsp; &nbsp;if (A[i] &gt; value)<br>5.&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;return value<br>6.&nbsp; &nbsp; &nbsp;i ← i + 1<br>7. return value<\/span><\/p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">You are going to represent the time complexity of the algorithm using the theta(= Θ) notation. Select a correct one.<\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "Theta(n*log n)",
+      "Theta(1)",
+      "Theta(n)",
+      "Theta(log n)",
+      "You can&#39;t represent it using the theta notation."
+    ],
+    "correctIndex": 4,
+    "originalWrongAnswer": "Theta(n)",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2478362",
+    "key": "quiz-3-austin-phipps-files-question_2478362",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 11",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">You are going to represent the time complexity of the following C++ code using the Big-O (= O) notation. Select a correct one.<\/span><\/p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"><img src=\"./Quiz 3_ Austin Phipps_files/code_1605.png\" alt=\"code_1605.png\" width=\"375\" height=\"332\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "O(n)",
+      "You can&#39;t represent it using the Big-O notation.",
+      "O(n*log n)",
+      "O(log n)",
+      "O(1)",
+      "O(n^2)"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2478366",
+    "key": "quiz-3-austin-phipps-files-question_2478366",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 12",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Read the following Java program carefully. When you run the program, how many times will the \"<strong>Hi<\/strong>\" message be displayed on the screen?<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 3_ Austin Phipps_files/code_12_15.png\" alt=\"code_12_15.png\" width=\"623\" height=\"242\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p>public class Main {<br>&nbsp; &nbsp; public static void main(String[] args) {<br>&nbsp; &nbsp; &nbsp; &nbsp; int n = 10;<\/p>\n<p>&nbsp; &nbsp; &nbsp; &nbsp; while (n &gt; 0) {<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; n = n / 2;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; System.out.println(\"Hi\");<br>&nbsp; &nbsp; &nbsp; &nbsp; }<br>&nbsp; &nbsp; }<br>}<\/p>\n<p>&nbsp;<\/p><p><\/p>",
+    "options": [
+      "8",
+      "5",
+      "0",
+      "3",
+      "7",
+      "4",
+      "6",
+      "1",
+      "None of these.",
+      "2"
+    ],
+    "correctIndex": 5,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2478365",
+    "key": "quiz-3-austin-phipps-files-question_2478365",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 13",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif; color: #e62429;\"><strong>[Bonus Problem – 0.5 Points] This is a bonus problem. A correct answer will earn you 0.5 bonus points.<\/strong><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">My sorting program is 1,000 lines of code, while my friend's sorting program is 10,000 lines. Therefore, it is correct to conclude that my code is more time-efficient than my friend's code. (True / False)<\/span><\/p>\n<p>&nbsp;<\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><strong>Answer: False<\/strong><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Time efficiency (time complexity) is determined by the number of times a basic operation is executed, not by the total number of lines in the source code.<\/span><\/p><p><\/p>",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505598",
+    "key": "quiz-4-austin-phipps-files-question_2505598",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 1",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Recall the operation of the <strong>run-time stack<\/strong> as discussed in class. Assume that the following program has started execution and is <strong>currently executing line 23<\/strong>. What is the <strong>return address stored at the top of the run-time stack<\/strong> at this moment? For this problem, pay attention to the <strong>line numbers<\/strong> in the program.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 4_ Austin Phipps_files/12_33_pseudo.png\" alt=\"12_33_pseudo.png\" width=\"305\" height=\"679\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "#11",
+      "None of these.",
+      "#24",
+      "#17",
+      "#4",
+      "Return address of O.S."
+    ],
+    "correctIndex": 3,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505599_match_1",
+    "key": "quiz-4-austin-phipps-files-question_2505599-match-1",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 2 ((a))",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p id=\"yui_3_17_2_1_1626392947069_3001\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following recursive function:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_10_15.png\" alt=\"code_10_15.png\" width=\"622\" height=\"252\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(a) Return value for&nbsp;<strong>fun(3)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(b) Return value for <strong>fun(4)<\/strong>.<br><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(c) Return value for <strong>fun(5)<\/strong>.<\/span><\/p><div class=\"practice-subprompt\"><strong>(a)<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "2",
+      "8",
+      "4",
+      "7",
+      "1",
+      "9",
+      "10",
+      "None of these.",
+      "0",
+      "6"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "2",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505599_match_2",
+    "key": "quiz-4-austin-phipps-files-question_2505599-match-2",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 2 ((b))",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p id=\"yui_3_17_2_1_1626392947069_3001\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following recursive function:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_10_15.png\" alt=\"code_10_15.png\" width=\"622\" height=\"252\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(a) Return value for&nbsp;<strong>fun(3)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(b) Return value for <strong>fun(4)<\/strong>.<br><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(c) Return value for <strong>fun(5)<\/strong>.<\/span><\/p><div class=\"practice-subprompt\"><strong>(b)<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "3",
+      "8",
+      "4",
+      "7",
+      "1",
+      "9",
+      "10",
+      "None of these.",
+      "0",
+      "6"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "3",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505599_match_3",
+    "key": "quiz-4-austin-phipps-files-question_2505599-match-3",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 2 ((c))",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p id=\"yui_3_17_2_1_1626392947069_3001\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following recursive function:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_10_15.png\" alt=\"code_10_15.png\" width=\"622\" height=\"252\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(a) Return value for&nbsp;<strong>fun(3)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(b) Return value for <strong>fun(4)<\/strong>.<br><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">(c) Return value for <strong>fun(5)<\/strong>.<\/span><\/p><div class=\"practice-subprompt\"><strong>(c)<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "5",
+      "8",
+      "4",
+      "7",
+      "1",
+      "9",
+      "10",
+      "None of these.",
+      "0",
+      "6"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "5",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505601",
+    "key": "quiz-4-austin-phipps-files-question_2505601",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 3",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following recurrence relation and initial condition for a recursive algorithm.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">&nbsp; &nbsp; &nbsp; &nbsp; M(n) = M(n-1) + 2<span style=\"white-space: pre;\"> <\/span>// recurrence relation<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">&nbsp; &nbsp; &nbsp; &nbsp; M(1) = 1<span style=\"white-space: pre;\"> <\/span>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;// initial condition<\/span><\/p>\n<p>Based on this information, determine the value of <strong>M(3)<\/strong>.<\/p>",
+    "explanationHtml": "",
+    "options": [
+      "7",
+      "2",
+      "3",
+      "None of these.",
+      "6",
+      "5",
+      "8",
+      "1",
+      "4"
+    ],
+    "correctIndex": 5,
+    "originalWrongAnswer": "None of these.",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2505602",
+    "key": "quiz-4-austin-phipps-files-question_2505602",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 4",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\">Consider the following recursive algorithm. For this problem, n is an integer greater than or equal to one.<\/span><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\"><br><span style=\"font-family: &#39;courier new&#39;, courier;\">1. Algorithm F(n)<\/span><\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">2. if n = 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">3.&nbsp; &nbsp;&nbsp;return 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">4. else<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">5.&nbsp; &nbsp;&nbsp;return F(n - 1) + 2<\/span><br><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that <strong>P(n)<\/strong> indicates the number of plus operation(s) to be executed in the line number 5. Using the notation, you are going to represent the <strong>initial condition<\/strong> of the recursive algorithm. Select the correct one.<\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "P(1) = 0",
+      "None of these.",
+      "P(1) = 2",
+      "P(2) = 2",
+      "P(1) = 1",
+      "P(0) = 1"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "P(1) = 1",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2505603",
+    "key": "quiz-4-austin-phipps-files-question_2505603",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 5",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\">Consider the following recursive algorithm. For this problem, n is an integer greater than or equal to one.<\/span><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\"><br><span style=\"font-family: &#39;courier new&#39;, courier;\">1. Algorithm F(n)<\/span><\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">2. if n = 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">3.&nbsp; &nbsp;&nbsp;return 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">4. else<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">5.&nbsp; &nbsp;&nbsp;return F(n - 1) + 2<\/span><br><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that <strong>P(n)<\/strong> indicates the number of plus operation(s) to be executed in the line number 5. Using the notation, you are going to represent the <strong>recurrence relation<\/strong> of the recursive algorithm. Select the correct one.<\/span>",
+    "explanationHtml": "",
+    "options": [
+      "None of these.",
+      "P(n) = P(n-1) + 1",
+      "P(n) = n-1",
+      "P(n) = n",
+      "P(n) = P(n-1) + 2"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "P(n) = P(n-1) + 2",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2505604_match_1",
+    "key": "quiz-4-austin-phipps-files-question_2505604-match-1",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 6 (A)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Assume that you are going to conduct&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3139\">BFS (=&nbsp;Breadth-First Search)<\/strong>&nbsp;for the following graph from the&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3140\">vertex c<\/strong>. Select the visiting sequence from the number 1 to fill the mark array as you learned in the lecture. When you traverse the graph, you should follow our convention (= alphabetical order of vertex characters).<\/span><br id=\"yui_3_17_2_1_1626393755479_3141\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"><img src=\"./Quiz 4_ Austin Phipps_files/graph_04_36.png\" alt=\"graph_04_36.png\" width=\"203\" height=\"183\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>A<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "2",
+      "0",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "2",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505604_match_2",
+    "key": "quiz-4-austin-phipps-files-question_2505604-match-2",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 6 (B)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Assume that you are going to conduct&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3139\">BFS (=&nbsp;Breadth-First Search)<\/strong>&nbsp;for the following graph from the&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3140\">vertex c<\/strong>. Select the visiting sequence from the number 1 to fill the mark array as you learned in the lecture. When you traverse the graph, you should follow our convention (= alphabetical order of vertex characters).<\/span><br id=\"yui_3_17_2_1_1626393755479_3141\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"><img src=\"./Quiz 4_ Austin Phipps_files/graph_04_36.png\" alt=\"graph_04_36.png\" width=\"203\" height=\"183\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>B<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "3",
+      "0",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "3",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505604_match_3",
+    "key": "quiz-4-austin-phipps-files-question_2505604-match-3",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 6 (C)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Assume that you are going to conduct&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3139\">BFS (=&nbsp;Breadth-First Search)<\/strong>&nbsp;for the following graph from the&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3140\">vertex c<\/strong>. Select the visiting sequence from the number 1 to fill the mark array as you learned in the lecture. When you traverse the graph, you should follow our convention (= alphabetical order of vertex characters).<\/span><br id=\"yui_3_17_2_1_1626393755479_3141\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"><img src=\"./Quiz 4_ Austin Phipps_files/graph_04_36.png\" alt=\"graph_04_36.png\" width=\"203\" height=\"183\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>C<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "1",
+      "0",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "1",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505604_match_4",
+    "key": "quiz-4-austin-phipps-files-question_2505604-match-4",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 6 (D)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Assume that you are going to conduct&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3139\">BFS (=&nbsp;Breadth-First Search)<\/strong>&nbsp;for the following graph from the&nbsp;<strong id=\"yui_3_17_2_1_1626393755479_3140\">vertex c<\/strong>. Select the visiting sequence from the number 1 to fill the mark array as you learned in the lecture. When you traverse the graph, you should follow our convention (= alphabetical order of vertex characters).<\/span><br id=\"yui_3_17_2_1_1626393755479_3141\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"><img src=\"./Quiz 4_ Austin Phipps_files/graph_04_36.png\" alt=\"graph_04_36.png\" width=\"203\" height=\"183\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>D<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "4",
+      "0",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "4",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505607_match_1",
+    "key": "quiz-4-austin-phipps-files-question_2505607-match-1",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 8 (line # 14)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span>Read the following C++ code carefully and d<\/span><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">etermine the&nbsp;execution result at <\/span><strong style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">line number 14, 15, 16, and 17<\/strong><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">.<\/span><\/p>\n<p><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_20_53.png\" alt=\"code_20_53.png\" width=\"579\" height=\"470\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>line # 14<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p>This is part of the bubble sort process to put the biggest number 30 to the index 4. The values of the array values[ ] will be 10, 25, 15, 20, 30 after the process.<\/p>\n<p>=================================================================<\/p>\n<div>int main() {<\/div>\n<div>&nbsp; &nbsp; int values[5] = {25, 10, 30, 15, 20};<\/div>\n<div>&nbsp; &nbsp; int size = 5;<\/div>\n<div>&nbsp; &nbsp; int tmp;<\/div>\n<div>&nbsp; &nbsp; for (int j = 0; j &lt; size - 1; j++) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; if (values[j] &gt; values[j + 1]) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; tmp = values[j];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j] = values[j + 1];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j + 1] = tmp;<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; cout &lt;&lt; values[0] &lt;&lt; endl;<\/div>\n<div><span style=\"font-family: inherit; font-size: 1rem;\">&nbsp; &nbsp; cout &lt;&lt; values[1] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[2] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[3] &lt;&lt; endl;<\/span><\/div>\n<div>&nbsp; &nbsp; return 0;<\/div>\n<div>}<\/div><p><\/p>",
+    "options": [
+      "10",
+      "None of these",
+      "5",
+      "30"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "10",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505607_match_2",
+    "key": "quiz-4-austin-phipps-files-question_2505607-match-2",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 8 (line # 15)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span>Read the following C++ code carefully and d<\/span><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">etermine the&nbsp;execution result at <\/span><strong style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">line number 14, 15, 16, and 17<\/strong><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">.<\/span><\/p>\n<p><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_20_53.png\" alt=\"code_20_53.png\" width=\"579\" height=\"470\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>line # 15<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p>This is part of the bubble sort process to put the biggest number 30 to the index 4. The values of the array values[ ] will be 10, 25, 15, 20, 30 after the process.<\/p>\n<p>=================================================================<\/p>\n<div>int main() {<\/div>\n<div>&nbsp; &nbsp; int values[5] = {25, 10, 30, 15, 20};<\/div>\n<div>&nbsp; &nbsp; int size = 5;<\/div>\n<div>&nbsp; &nbsp; int tmp;<\/div>\n<div>&nbsp; &nbsp; for (int j = 0; j &lt; size - 1; j++) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; if (values[j] &gt; values[j + 1]) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; tmp = values[j];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j] = values[j + 1];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j + 1] = tmp;<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; cout &lt;&lt; values[0] &lt;&lt; endl;<\/div>\n<div><span style=\"font-family: inherit; font-size: 1rem;\">&nbsp; &nbsp; cout &lt;&lt; values[1] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[2] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[3] &lt;&lt; endl;<\/span><\/div>\n<div>&nbsp; &nbsp; return 0;<\/div>\n<div>}<\/div><p><\/p>",
+    "options": [
+      "25",
+      "None of these",
+      "5",
+      "30"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "25",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505607_match_3",
+    "key": "quiz-4-austin-phipps-files-question_2505607-match-3",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 8 (line # 16)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span>Read the following C++ code carefully and d<\/span><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">etermine the&nbsp;execution result at <\/span><strong style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">line number 14, 15, 16, and 17<\/strong><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">.<\/span><\/p>\n<p><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_20_53.png\" alt=\"code_20_53.png\" width=\"579\" height=\"470\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>line # 16<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p>This is part of the bubble sort process to put the biggest number 30 to the index 4. The values of the array values[ ] will be 10, 25, 15, 20, 30 after the process.<\/p>\n<p>=================================================================<\/p>\n<div>int main() {<\/div>\n<div>&nbsp; &nbsp; int values[5] = {25, 10, 30, 15, 20};<\/div>\n<div>&nbsp; &nbsp; int size = 5;<\/div>\n<div>&nbsp; &nbsp; int tmp;<\/div>\n<div>&nbsp; &nbsp; for (int j = 0; j &lt; size - 1; j++) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; if (values[j] &gt; values[j + 1]) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; tmp = values[j];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j] = values[j + 1];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j + 1] = tmp;<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; cout &lt;&lt; values[0] &lt;&lt; endl;<\/div>\n<div><span style=\"font-family: inherit; font-size: 1rem;\">&nbsp; &nbsp; cout &lt;&lt; values[1] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[2] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[3] &lt;&lt; endl;<\/span><\/div>\n<div>&nbsp; &nbsp; return 0;<\/div>\n<div>}<\/div><p><\/p>",
+    "options": [
+      "15",
+      "None of these",
+      "5",
+      "30"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "15",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505607_match_4",
+    "key": "quiz-4-austin-phipps-files-question_2505607-match-4",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 8 (line # 17)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span>Read the following C++ code carefully and d<\/span><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">etermine the&nbsp;execution result at <\/span><strong style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">line number 14, 15, 16, and 17<\/strong><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\">.<\/span><\/p>\n<p><span style=\"color: var(--ic-brand-font-color-dark); font-family: inherit; font-size: 1rem;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_20_53.png\" alt=\"code_20_53.png\" width=\"579\" height=\"470\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>line # 17<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p>This is part of the bubble sort process to put the biggest number 30 to the index 4. The values of the array values[ ] will be 10, 25, 15, 20, 30 after the process.<\/p>\n<p>=================================================================<\/p>\n<div>int main() {<\/div>\n<div>&nbsp; &nbsp; int values[5] = {25, 10, 30, 15, 20};<\/div>\n<div>&nbsp; &nbsp; int size = 5;<\/div>\n<div>&nbsp; &nbsp; int tmp;<\/div>\n<div>&nbsp; &nbsp; for (int j = 0; j &lt; size - 1; j++) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; if (values[j] &gt; values[j + 1]) {<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; tmp = values[j];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j] = values[j + 1];<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; values[j + 1] = tmp;<\/div>\n<div>&nbsp; &nbsp; &nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; }<\/div>\n<div>&nbsp; &nbsp; cout &lt;&lt; values[0] &lt;&lt; endl;<\/div>\n<div><span style=\"font-family: inherit; font-size: 1rem;\">&nbsp; &nbsp; cout &lt;&lt; values[1] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[2] &lt;&lt; endl;<\/span><\/div>\n<div><span>&nbsp; &nbsp; cout &lt;&lt; values[3] &lt;&lt; endl;<\/span><\/div>\n<div>&nbsp; &nbsp; return 0;<\/div>\n<div>}<\/div><p><\/p>",
+    "options": [
+      "20",
+      "None of these",
+      "5",
+      "30"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "20",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2505600",
+    "key": "quiz-4-austin-phipps-files-question_2505600",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 9",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif; color: #e62429;\">[<strong>Bonus Problem - 0.5 Points<\/strong>] This is a bonus problem. A fully correct answer will earn you 0.5 bonus points.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Present the <strong>space complexity<\/strong> of the following code using Big-O notation. When presenting your answer, consider the <strong>total memory space<\/strong> (<strong>= both input space and auxiliary space<\/strong>) used during execution.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 4_ Austin Phipps_files/code_16_34.png\" alt=\"code_16_34.png\" width=\"538\" height=\"163\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "O(2^n)",
+      "O(nlogn)",
+      "O(n^2)",
+      "O(n)",
+      "O(n!)",
+      "O(1)",
+      "None of these.",
+      "O(n^3)"
+    ],
+    "correctIndex": 3,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2524964",
+    "key": "quiz-5-austin-phipps-files-question_2524964",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 1",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The TSP and the knapsack problem are NP-hard. Which of the following statements is correct?<\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "These problems can be solved in constant time.",
+      "There exists a polynomial-time algorithm for these problems.",
+      "It has been proven that no polynomial-time algorithm exists.",
+      "No polynomial-time algorithm is known, and it is widely believed none exists."
+    ],
+    "correctIndex": 3,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2525011",
+    "key": "quiz-5-austin-phipps-files-question_2525011",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 2",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following <strong>divide and conquer algorithm<\/strong> in Java. <span style=\"font-family: arial, helvetica, sans-serif;\">Present the execution result of the program at line number 18.<\/span><\/span><\/p>\n<p><img src=\"./Quiz 5_ Austin Phipps_files/code_12_39.png\" alt=\"code_12_39.png\" loading=\"lazy\"><\/p>\n<p>&nbsp;<\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p>This program returns the index of the maximum value in the array. When values are equal, the left index is chosen due to the \"&gt;=\" operator.<\/p>\n<p>public class Main {<br>&nbsp; &nbsp; public static int myFun(int[] arr, int left, int right) {<br>&nbsp; &nbsp; &nbsp; &nbsp; if (left == right) {<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; return left;<br>&nbsp; &nbsp; &nbsp; &nbsp; }<br>&nbsp; &nbsp; &nbsp; &nbsp; int mid = (left + right) / 2;<br>&nbsp; &nbsp; &nbsp; &nbsp; int n1 = myFun(arr, left, mid);<br>&nbsp; &nbsp; &nbsp; &nbsp; int n2 = myFun(arr, mid + 1, right);<br>&nbsp; &nbsp; &nbsp; &nbsp; if (arr[n1] &gt;= arr[n2]) {<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; return n1;<br>&nbsp; &nbsp; &nbsp; &nbsp; } else {<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; return n2;<br>&nbsp; &nbsp; &nbsp; &nbsp; }<br>&nbsp; &nbsp; }<\/p>\n<p>&nbsp; &nbsp; public static void main(String[] args) {<br>&nbsp; &nbsp; &nbsp; &nbsp; int[] arr = {5, 7, 2, 7};<br>&nbsp; &nbsp; &nbsp; &nbsp; System.out.println(myFun(arr, 0, arr.length - 1));<br>&nbsp; &nbsp; }<br>}<\/p>\n<p>&nbsp;<\/p><p><\/p>",
+    "options": [
+      "None of these.",
+      "10",
+      "6",
+      "8",
+      "1",
+      "9",
+      "4",
+      "5",
+      "0",
+      "3",
+      "2",
+      "7"
+    ],
+    "correctIndex": 4,
+    "originalWrongAnswer": "7",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2524966",
+    "key": "quiz-5-austin-phipps-files-question_2524966",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 3",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following <strong>Master Theorem<\/strong><\/span><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img class=\"img-responsive atto_image_button_text-bottom\" role=\"presentation\" src=\"./Quiz 5_ Austin Phipps_files/master_theorem_739.png\" alt=\"\" width=\"462\" height=\"164\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Based on the above theorem, determine the time efficiency of the following formula T(n).<\/span><\/p>\n<p><span style=\"font-size: 14pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\">&nbsp; &nbsp; T<\/span><span class=\"\">(<\/span><span class=\"\">n<\/span><span class=\"\">) = 2 * <\/span><span class=\"\">T<\/span><span class=\"\">(<\/span><span class=\"\">n<\/span><span class=\"\">/2) + 3<\/span><span class=\"\">n<sup>2<\/sup><\/span><span class=\"\">&nbsp;<\/span><span class=\"\">+ 7<\/span><\/span><\/p>\n<p>&nbsp;<\/p>",
+    "explanationHtml": "",
+    "options": [
+      "None of these.",
+      "&amp;#x0398; &quot; role=&quot;presentation&quot;&gt; Θ \\Theta (n)",
+      "<span class=\"MathJax_Preview\" style=\"color: inherit;\"><\/span><span class=\"MathJax_SVG\" id=\"MathJax-Element-3-Frame\" tabindex=\"0\" style=\"font-size: 100%; display: inline-block; position: relative;\" data-mathml=\"&lt;math xmlns=&quot;http://www.w3.org/1998/Math/MathML&quot;&gt;&lt;mi mathvariant=&quot;normal&quot;&gt;&amp;#x0398;&lt;/mi&gt;&lt;/math&gt;\" role=\"presentation\"><svg xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"1.808ex\" height=\"2.127ex\" viewBox=\"0 -792.2 778.5 915.8\" role=\"img\" focusable=\"false\" style=\"vertical-align: -0.287ex;\" aria-hidden=\"true\"><g stroke=\"currentColor\" fill=\"currentColor\" stroke-width=\"0\" transform=\"matrix(1 0 0 -1 0 0)\"><use href=\"https://csumb.instructure.com/courses/33260/quizzes/137086?headless=1#MJMAIN-398\" x=\"0\" y=\"0\"><\/use><\/g><\/svg><span class=\"MJX_Assistive_MathML\" role=\"presentation\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi mathvariant=\"normal\">Θ<\/mi><\/math><\/span><\/span><script type=\"math/tex\" id=\"MathJax-Element-3\"> \\Theta <\/script>(<span>n<sup>2<\/sup><\/span>)",
+      "<span class=\"MathJax_Preview\" style=\"color: inherit;\"><\/span><span class=\"MathJax_SVG\" id=\"MathJax-Element-5-Frame\" tabindex=\"0\" style=\"font-size: 100%; display: inline-block; position: relative;\" data-mathml=\"&lt;math xmlns=&quot;http://www.w3.org/1998/Math/MathML&quot;&gt;&lt;mi mathvariant=&quot;normal&quot;&gt;&amp;#x0398;&lt;/mi&gt;&lt;/math&gt;\" role=\"presentation\"><svg xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"1.808ex\" height=\"2.127ex\" viewBox=\"0 -792.2 778.5 915.8\" role=\"img\" focusable=\"false\" style=\"vertical-align: -0.287ex;\" aria-hidden=\"true\"><g stroke=\"currentColor\" fill=\"currentColor\" stroke-width=\"0\" transform=\"matrix(1 0 0 -1 0 0)\"><use href=\"https://csumb.instructure.com/courses/33260/quizzes/137086?headless=1#MJMAIN-398\" x=\"0\" y=\"0\"><\/use><\/g><\/svg><span class=\"MJX_Assistive_MathML\" role=\"presentation\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi mathvariant=\"normal\">Θ<\/mi><\/math><\/span><\/span><script type=\"math/tex\" id=\"MathJax-Element-5\"> \\Theta <\/script>(n<sup>2<\/sup>logn)",
+      "<span class=\"MathJax_Preview\" style=\"color: inherit;\"><\/span><span class=\"MathJax_SVG\" id=\"MathJax-Element-7-Frame\" tabindex=\"0\" style=\"font-size: 100%; display: inline-block; position: relative;\" data-mathml=\"&lt;math xmlns=&quot;http://www.w3.org/1998/Math/MathML&quot;&gt;&lt;mi mathvariant=&quot;normal&quot;&gt;&amp;#x0398;&lt;/mi&gt;&lt;/math&gt;\" role=\"presentation\"><svg xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"1.808ex\" height=\"2.127ex\" viewBox=\"0 -792.2 778.5 915.8\" role=\"img\" focusable=\"false\" style=\"vertical-align: -0.287ex;\" aria-hidden=\"true\"><g stroke=\"currentColor\" fill=\"currentColor\" stroke-width=\"0\" transform=\"matrix(1 0 0 -1 0 0)\"><use href=\"https://csumb.instructure.com/courses/33260/quizzes/137086?headless=1#MJMAIN-398\" x=\"0\" y=\"0\"><\/use><\/g><\/svg><span class=\"MJX_Assistive_MathML\" role=\"presentation\"><math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mi mathvariant=\"normal\">Θ<\/mi><\/math><\/span><\/span><script type=\"math/tex\" id=\"MathJax-Element-7\"> \\Theta <\/script>(n<sup>3<\/sup>)"
+    ],
+    "correctIndex": 2,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2524970",
+    "key": "quiz-5-austin-phipps-files-question_2524970",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 6",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that you have an array with the following numbers:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">&nbsp; &nbsp; “<strong>60,&nbsp; 70,&nbsp; 80,&nbsp; 20,&nbsp; 40,&nbsp; 10,&nbsp; 50<\/strong>”. <\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">If you run the <strong>quicksort <\/strong>algorithm using <strong>\"Median-of-Three\"<\/strong> partitioning covered in the class, what will be the \"<strong>pivot<\/strong>\" number for the first partitioning.<\/span><\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Answer: 50.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">\"first\" index: 0<\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">\"last\" index: 6<\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">\"mid\" index: 3 (= (0+6)/2)<\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Thus, we should consider three values 60, 20, and 50.<\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Since the median of them is 50, you should select it as a pivot.<\/span><\/p><p><\/p>",
+    "options": [
+      "10",
+      "40",
+      "60",
+      "80",
+      "50",
+      "20",
+      "70"
+    ],
+    "correctIndex": 4,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2524972_match_1",
+    "key": "quiz-5-austin-phipps-files-question_2524972-match-1",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 7 (first value)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that you conduct the <strong id=\"yui_3_17_2_1_1624541837452_3160\">post-order traversal<\/strong> for the following binary tree. Present the <strong>first value<\/strong> and <strong>last value<\/strong> of the post-order traversal sequence.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img style=\"display: block; margin-left: auto; margin-right: auto;\" src=\"./Quiz 5_ Austin Phipps_files/BST_1535-1.png\" alt=\"BST_1535-1.png\" width=\"285\" height=\"189\" loading=\"lazy\">&nbsp;<\/span><\/p><div class=\"practice-subprompt\"><strong>first value<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\">Post-order traversal sequence: 40 --&gt; 20 --&gt; 50 --&gt; 60 --&gt; 30 --&gt; 10<\/p>",
+    "options": [
+      "40",
+      "20",
+      "60",
+      "none of these",
+      "30",
+      "50"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "40",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2524972_match_2",
+    "key": "quiz-5-austin-phipps-files-question_2524972-match-2",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 7 (last value)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that you conduct the <strong id=\"yui_3_17_2_1_1624541837452_3160\">post-order traversal<\/strong> for the following binary tree. Present the <strong>first value<\/strong> and <strong>last value<\/strong> of the post-order traversal sequence.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img style=\"display: block; margin-left: auto; margin-right: auto;\" src=\"./Quiz 5_ Austin Phipps_files/BST_1535-1.png\" alt=\"BST_1535-1.png\" width=\"285\" height=\"189\" loading=\"lazy\">&nbsp;<\/span><\/p><div class=\"practice-subprompt\"><strong>last value<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\">Post-order traversal sequence: 40 --&gt; 20 --&gt; 50 --&gt; 60 --&gt; 30 --&gt; 10<\/p>",
+    "options": [
+      "10",
+      "20",
+      "60",
+      "none of these",
+      "30",
+      "50"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "10",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2524974",
+    "key": "quiz-5-austin-phipps-files-question_2524974",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 9",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span style=\"color: #e62429;\"><strong>[Bonus Problem - 0.5 Points]<\/strong> This is a bonus problem. A fully correct answer will earn you 0.5 bonus points.<\/span><br><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">We can say that the <strong>time complexity of quicksort<\/strong> is <strong>O(n*logn)<\/strong>.<\/span><\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The worst-case time complexity of quicksort is O(n²), so you can’t say it’s O(n log n).<\/span><\/p>",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533915",
+    "key": "quiz-6-austin-phipps-files-question_2533915",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 1",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><strong style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Time complexity of the binary search<\/strong><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"> <\/span><span style=\"font-family: arial, helvetica, sans-serif;\"><strong>algorithm<\/strong><span style=\"font-size: 12pt;\"><strong>&nbsp;<\/strong>which finds a value in a sorted array is <\/span><\/span><strong style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">O(log n)<\/strong><span style=\"font-family: arial, helvetica, sans-serif;\"><span style=\"font-size: 12pt;\">.<\/span><\/span><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "False",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533918",
+    "key": "quiz-6-austin-phipps-files-question_2533918",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 3",
+    "questionType": "multiple_answers_question",
+    "inputType": "multiple",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the <strong>topological sorting<\/strong>. Select <strong>all starting node(s)<\/strong> for the topological sorting.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/graph_12_18.png\" alt=\"graph_12_18.png\" width=\"463\" height=\"209\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "b",
+      "g",
+      "None of these.",
+      "f",
+      "d",
+      "a",
+      "c",
+      "e"
+    ],
+    "correctIndices": [
+      4
+    ],
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533920_match_1",
+    "key": "quiz-6-austin-phipps-files-question_2533920-match-1",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 5 (V1)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3117\">topological sorting<\/strong>&nbsp;using the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3118\">source removal algorithm (= Kahn’s algorithm)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/1335_graph.png\" alt=\"1335_graph.png\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span id=\"yui_3_17_2_1_1626404052206_3084\">Choose the initial <strong>“in-degree” values&nbsp;<\/strong>of each vertex as we discussed in the class.<br><\/span><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>V1<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "2",
+      "5",
+      "4",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "2",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533920_match_2",
+    "key": "quiz-6-austin-phipps-files-question_2533920-match-2",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 5 (V2)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3117\">topological sorting<\/strong>&nbsp;using the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3118\">source removal algorithm (= Kahn’s algorithm)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/1335_graph.png\" alt=\"1335_graph.png\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span id=\"yui_3_17_2_1_1626404052206_3084\">Choose the initial <strong>“in-degree” values&nbsp;<\/strong>of each vertex as we discussed in the class.<br><\/span><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>V2<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "2",
+      "5",
+      "4",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "2",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533920_match_3",
+    "key": "quiz-6-austin-phipps-files-question_2533920-match-3",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 5 (V3)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3117\">topological sorting<\/strong>&nbsp;using the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3118\">source removal algorithm (= Kahn’s algorithm)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/1335_graph.png\" alt=\"1335_graph.png\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span id=\"yui_3_17_2_1_1626404052206_3084\">Choose the initial <strong>“in-degree” values&nbsp;<\/strong>of each vertex as we discussed in the class.<br><\/span><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>V3<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "1",
+      "5",
+      "4",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "1",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533920_match_4",
+    "key": "quiz-6-austin-phipps-files-question_2533920-match-4",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 5 (V4)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3117\">topological sorting<\/strong>&nbsp;using the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3118\">source removal algorithm (= Kahn’s algorithm)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/1335_graph.png\" alt=\"1335_graph.png\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span id=\"yui_3_17_2_1_1626404052206_3084\">Choose the initial <strong>“in-degree” values&nbsp;<\/strong>of each vertex as we discussed in the class.<br><\/span><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>V4<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "0",
+      "5",
+      "4",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "0",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533920_match_5",
+    "key": "quiz-6-austin-phipps-files-question_2533920-match-5",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 5 (V5)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3117\">topological sorting<\/strong>&nbsp;using the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3118\">source removal algorithm (= Kahn’s algorithm)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/1335_graph.png\" alt=\"1335_graph.png\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span id=\"yui_3_17_2_1_1626404052206_3084\">Choose the initial <strong>“in-degree” values&nbsp;<\/strong>of each vertex as we discussed in the class.<br><\/span><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>V5<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "2",
+      "5",
+      "4",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "2",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533920_match_6",
+    "key": "quiz-6-austin-phipps-files-question_2533920-match-6",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 5 (V6)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3117\">topological sorting<\/strong>&nbsp;using the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3118\">source removal algorithm (= Kahn’s algorithm)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/1335_graph.png\" alt=\"1335_graph.png\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span id=\"yui_3_17_2_1_1626404052206_3084\">Choose the initial <strong>“in-degree” values&nbsp;<\/strong>of each vertex as we discussed in the class.<br><\/span><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>V6<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "3",
+      "5",
+      "4",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "3",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533920_match_7",
+    "key": "quiz-6-austin-phipps-files-question_2533920-match-7",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 5 (V7)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the following graph, you are going to conduct the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3117\">topological sorting<\/strong>&nbsp;using the&nbsp;<strong id=\"yui_3_17_2_1_1626404052206_3118\">source removal algorithm (= Kahn’s algorithm)<\/strong>.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/1335_graph.png\" alt=\"1335_graph.png\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span id=\"yui_3_17_2_1_1626404052206_3084\">Choose the initial <strong>“in-degree” values&nbsp;<\/strong>of each vertex as we discussed in the class.<br><\/span><\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>V7<\/strong><\/div>",
+    "explanationHtml": "",
+    "options": [
+      "2",
+      "5",
+      "4",
+      "None of these."
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "2",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533921",
+    "key": "quiz-6-austin-phipps-files-question_2533921",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 6",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume you are developing <strong>an efficient Java program<\/strong> to determine the difference between the smallest and largest numbers in an unsorted integer array of size n. Present the time complexity of your program.<\/span>",
+    "explanationHtml": "<p class=\"neutral_comments\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">You should traverse the array once to identify the smallest and largest numbers. Then, you should compute the difference between them. Thus, it requires a single pass through the array, resulting in a time complexity of O(n).<\/span><\/p>",
+    "options": [
+      "O(n * log n)",
+      "O(log n)",
+      "O(n)",
+      "None of these.",
+      "O(1)",
+      "O(n^2)"
+    ],
+    "correctIndex": 2,
+    "originalWrongAnswer": "",
+    "wasMissed": false
+  },
+  {
+    "id": "question_2533924",
+    "key": "quiz-6-austin-phipps-files-question_2533924",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 7",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">This is an AVL tree.<\/span><\/p>\n<p><img src=\"./Quiz 6_ Austin Phipps_files/tree_1024.png\" alt=\"tree_1024.png\" loading=\"lazy\"><\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The tree is not a binary search tree. An AVL tree must be a BST.<\/span><\/p>",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "True",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533925",
+    "key": "quiz-6-austin-phipps-files-question_2533925",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 8",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following AVL tree. Determine the balance factor of the root node \"50\".<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/AVL_05_56.png\" alt=\"AVL_05_56.png\" width=\"201\" height=\"182\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "-1",
+      "2",
+      "1",
+      "0",
+      "-2"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "1",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533923",
+    "key": "quiz-6-austin-phipps-files-question_2533923",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 9",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following AVL tree. If you <strong>add the number \"55\"<\/strong> to the tree, <strong>what type of rotation<\/strong> may be required to maintain its balance as an AVL tree?<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/AVL_05_56.png\" alt=\"AVL_05_56.png\" width=\"201\" height=\"182\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "LR-rotation",
+      "R-rotation",
+      "L-rotation",
+      "RL-rotation",
+      "No rotation is necessary in this case."
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "LR-rotation",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533938",
+    "key": "quiz-6-austin-phipps-files-question_2533938",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 11",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">This is a 2-3 tree.<\/span><\/p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"><img class=\"img-responsive atto_image_button_text-bottom\" role=\"presentation\" src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_13.png\" alt=\"\" width=\"350\" height=\"204\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "True",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533926_match_1",
+    "key": "quiz-6-austin-phipps-files-question_2533926-match-1",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 12 ((a) First value of level 1)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p id=\"yui_3_17_2_1_1626464149508_3577\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the tree problems in the quiz, use the&nbsp;<strong id=\"yui_3_17_2_1_1626464149508_3605\">level-by-level order<\/strong> to represent them. For a sample tree below, the root value 5 is the level 0. And 7, 2, and 50 are the level 1. Thus, if someone asks you to write the second value of the level 1, the answer should be 2. As another example, if someone asks you to identify the third value of the level 1, it should be 50.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_27.png\" alt=\"2_3_tree_05_27.png\" width=\"244\" height=\"147\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Now, this is the question. To the following 2-3 tree below, <strong>add<\/strong> a number <strong>\"80\"<\/strong>&nbsp;and then <strong>add<\/strong> a number <strong>\"90\"<\/strong>.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_33.png\" alt=\"2_3_tree_05_33.png\" width=\"236\" height=\"154\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the resulting 2-3 tree, select the correct answer to the questions.<\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>(a) First value of level 1<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The result 2-3 tree:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 50, 80<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 10, 70, 90<\/span><\/p><p><\/p>",
+    "options": [
+      "10",
+      "50",
+      "None of these.",
+      "80",
+      "70"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "50",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533926_match_2",
+    "key": "quiz-6-austin-phipps-files-question_2533926-match-2",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 12 ((b) Last value of level 1)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p id=\"yui_3_17_2_1_1626464149508_3577\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the tree problems in the quiz, use the&nbsp;<strong id=\"yui_3_17_2_1_1626464149508_3605\">level-by-level order<\/strong> to represent them. For a sample tree below, the root value 5 is the level 0. And 7, 2, and 50 are the level 1. Thus, if someone asks you to write the second value of the level 1, the answer should be 2. As another example, if someone asks you to identify the third value of the level 1, it should be 50.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_27.png\" alt=\"2_3_tree_05_27.png\" width=\"244\" height=\"147\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Now, this is the question. To the following 2-3 tree below, <strong>add<\/strong> a number <strong>\"80\"<\/strong>&nbsp;and then <strong>add<\/strong> a number <strong>\"90\"<\/strong>.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_33.png\" alt=\"2_3_tree_05_33.png\" width=\"236\" height=\"154\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the resulting 2-3 tree, select the correct answer to the questions.<\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>(b) Last value of level 1<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The result 2-3 tree:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 50, 80<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 10, 70, 90<\/span><\/p><p><\/p>",
+    "options": [
+      "90",
+      "80",
+      "None of these.",
+      "50",
+      "70"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "80",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533929",
+    "key": "quiz-6-austin-phipps-files-question_2533929",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 13",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif; color: #e62429;\">[<strong>Bonus Problem - 0.5 Points<\/strong>] This is a bonus problem. A fully correct answer will earn you 0.5 bonus points.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that you have <strong><em>n<\/em><\/strong> coins with one fake coin that is lighter than the rest of coins. For the problem, you have to assume that the <em>n<\/em> is a big number. Now, you are going to find the fake coin using the algorithm you learned in the class with a balance scale like below. The <strong>time complexity<\/strong> of the algorithm is <strong>theta(log n)<\/strong>. Is this true or false?<\/span><br><br><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img style=\"display: block; margin-left: auto; margin-right: auto;\" role=\"presentation\" src=\"./Quiz 6_ Austin Phipps_files/download.png\" alt=\"download.png\" width=\"346\" height=\"156\" data-decorative=\"true\" loading=\"lazy\">&nbsp;&nbsp;<\/span><\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">If the input number n is odd and you set aside the fake coin at the first trial, you can find it after one comparison. So, the best case time complexity is just 1. Thus, the time complexity of the algorithm can't be theta(log n).&nbsp;<\/span><\/p>",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "True",
+    "wasMissed": true
+  }
+];
+    const missedQuestions = [
+  {
+    "id": "question_2478357",
+    "key": "quiz-3-austin-phipps-files-question_2478357",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 7",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">You can represent the time efficiency of the <strong>average calculation algorithm<\/strong> which calculates the average of all values stored in a sorted array <strong>using the Big O(= O) notation<\/strong>.<\/span>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "False",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2478361",
+    "key": "quiz-3-austin-phipps-files-question_2478361",
+    "quizLabel": "Quiz 3",
+    "questionLabel": "Question 10",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Read the following pseudocode carefully and answer to the following question.<\/span><\/p>\n<p id=\"yui_3_17_2_1_1626389558442_3163\"><span style=\"font-family: &#39;courier new&#39;, courier; font-size: 12pt;\"><span class=\"\">Algorithm DoSomething (A[0..n-1])<br><\/span>1. value ← A[0]<br>2. i ← 1<br>3. while ( i &lt; n ) do<br>4.&nbsp; &nbsp; &nbsp;if (A[i] &gt; value)<br>5.&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;return value<br>6.&nbsp; &nbsp; &nbsp;i ← i + 1<br>7. return value<\/span><\/p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">You are going to represent the time complexity of the algorithm using the theta(= Θ) notation. Select a correct one.<\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "Theta(n*log n)",
+      "Theta(1)",
+      "Theta(n)",
+      "Theta(log n)",
+      "You can&#39;t represent it using the theta notation."
+    ],
+    "correctIndex": 4,
+    "originalWrongAnswer": "Theta(n)",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2505601",
+    "key": "quiz-4-austin-phipps-files-question_2505601",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 3",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following recurrence relation and initial condition for a recursive algorithm.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">&nbsp; &nbsp; &nbsp; &nbsp; M(n) = M(n-1) + 2<span style=\"white-space: pre;\"> <\/span>// recurrence relation<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">&nbsp; &nbsp; &nbsp; &nbsp; M(1) = 1<span style=\"white-space: pre;\"> <\/span>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;// initial condition<\/span><\/p>\n<p>Based on this information, determine the value of <strong>M(3)<\/strong>.<\/p>",
+    "explanationHtml": "",
+    "options": [
+      "7",
+      "2",
+      "3",
+      "None of these.",
+      "6",
+      "5",
+      "8",
+      "1",
+      "4"
+    ],
+    "correctIndex": 5,
+    "originalWrongAnswer": "None of these.",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2505602",
+    "key": "quiz-4-austin-phipps-files-question_2505602",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 4",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\">Consider the following recursive algorithm. For this problem, n is an integer greater than or equal to one.<\/span><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\"><br><span style=\"font-family: &#39;courier new&#39;, courier;\">1. Algorithm F(n)<\/span><\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">2. if n = 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">3.&nbsp; &nbsp;&nbsp;return 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">4. else<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">5.&nbsp; &nbsp;&nbsp;return F(n - 1) + 2<\/span><br><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that <strong>P(n)<\/strong> indicates the number of plus operation(s) to be executed in the line number 5. Using the notation, you are going to represent the <strong>initial condition<\/strong> of the recursive algorithm. Select the correct one.<\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "P(1) = 0",
+      "None of these.",
+      "P(1) = 2",
+      "P(2) = 2",
+      "P(1) = 1",
+      "P(0) = 1"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "P(1) = 1",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2505603",
+    "key": "quiz-4-austin-phipps-files-question_2505603",
+    "quizLabel": "Quiz 4",
+    "questionLabel": "Question 5",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\">Consider the following recursive algorithm. For this problem, n is an integer greater than or equal to one.<\/span><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><span class=\"\"><br><span style=\"font-family: &#39;courier new&#39;, courier;\">1. Algorithm F(n)<\/span><\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">2. if n = 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">3.&nbsp; &nbsp;&nbsp;return 1<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">4. else<\/span><br><span class=\"\" style=\"font-family: &#39;courier new&#39;, courier;\">5.&nbsp; &nbsp;&nbsp;return F(n - 1) + 2<\/span><br><\/span><br><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that <strong>P(n)<\/strong> indicates the number of plus operation(s) to be executed in the line number 5. Using the notation, you are going to represent the <strong>recurrence relation<\/strong> of the recursive algorithm. Select the correct one.<\/span>",
+    "explanationHtml": "",
+    "options": [
+      "None of these.",
+      "P(n) = P(n-1) + 1",
+      "P(n) = n-1",
+      "P(n) = n",
+      "P(n) = P(n-1) + 2"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "P(n) = P(n-1) + 2",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2525011",
+    "key": "quiz-5-austin-phipps-files-question_2525011",
+    "quizLabel": "Quiz 5",
+    "questionLabel": "Question 2",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following <strong>divide and conquer algorithm<\/strong> in Java. <span style=\"font-family: arial, helvetica, sans-serif;\">Present the execution result of the program at line number 18.<\/span><\/span><\/p>\n<p><img src=\"./Quiz 5_ Austin Phipps_files/code_12_39.png\" alt=\"code_12_39.png\" loading=\"lazy\"><\/p>\n<p>&nbsp;<\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p>This program returns the index of the maximum value in the array. When values are equal, the left index is chosen due to the \"&gt;=\" operator.<\/p>\n<p>public class Main {<br>&nbsp; &nbsp; public static int myFun(int[] arr, int left, int right) {<br>&nbsp; &nbsp; &nbsp; &nbsp; if (left == right) {<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; return left;<br>&nbsp; &nbsp; &nbsp; &nbsp; }<br>&nbsp; &nbsp; &nbsp; &nbsp; int mid = (left + right) / 2;<br>&nbsp; &nbsp; &nbsp; &nbsp; int n1 = myFun(arr, left, mid);<br>&nbsp; &nbsp; &nbsp; &nbsp; int n2 = myFun(arr, mid + 1, right);<br>&nbsp; &nbsp; &nbsp; &nbsp; if (arr[n1] &gt;= arr[n2]) {<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; return n1;<br>&nbsp; &nbsp; &nbsp; &nbsp; } else {<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; return n2;<br>&nbsp; &nbsp; &nbsp; &nbsp; }<br>&nbsp; &nbsp; }<\/p>\n<p>&nbsp; &nbsp; public static void main(String[] args) {<br>&nbsp; &nbsp; &nbsp; &nbsp; int[] arr = {5, 7, 2, 7};<br>&nbsp; &nbsp; &nbsp; &nbsp; System.out.println(myFun(arr, 0, arr.length - 1));<br>&nbsp; &nbsp; }<br>}<\/p>\n<p>&nbsp;<\/p><p><\/p>",
+    "options": [
+      "None of these.",
+      "10",
+      "6",
+      "8",
+      "1",
+      "9",
+      "4",
+      "5",
+      "0",
+      "3",
+      "2",
+      "7"
+    ],
+    "correctIndex": 4,
+    "originalWrongAnswer": "7",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533915",
+    "key": "quiz-6-austin-phipps-files-question_2533915",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 1",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><strong style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">Time complexity of the binary search<\/strong><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"> <\/span><span style=\"font-family: arial, helvetica, sans-serif;\"><strong>algorithm<\/strong><span style=\"font-size: 12pt;\"><strong>&nbsp;<\/strong>which finds a value in a sorted array is <\/span><\/span><strong style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">O(log n)<\/strong><span style=\"font-family: arial, helvetica, sans-serif;\"><span style=\"font-size: 12pt;\">.<\/span><\/span><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "False",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533924",
+    "key": "quiz-6-austin-phipps-files-question_2533924",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 7",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">This is an AVL tree.<\/span><\/p>\n<p><img src=\"./Quiz 6_ Austin Phipps_files/tree_1024.png\" alt=\"tree_1024.png\" loading=\"lazy\"><\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The tree is not a binary search tree. An AVL tree must be a BST.<\/span><\/p>",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "True",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533925",
+    "key": "quiz-6-austin-phipps-files-question_2533925",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 8",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following AVL tree. Determine the balance factor of the root node \"50\".<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/AVL_05_56.png\" alt=\"AVL_05_56.png\" width=\"201\" height=\"182\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "-1",
+      "2",
+      "1",
+      "0",
+      "-2"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "1",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533923",
+    "key": "quiz-6-austin-phipps-files-question_2533923",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 9",
+    "questionType": "multiple_choice_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Consider the following AVL tree. If you <strong>add the number \"55\"<\/strong> to the tree, <strong>what type of rotation<\/strong> may be required to maintain its balance as an AVL tree?<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/AVL_05_56.png\" alt=\"AVL_05_56.png\" width=\"201\" height=\"182\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "LR-rotation",
+      "R-rotation",
+      "L-rotation",
+      "RL-rotation",
+      "No rotation is necessary in this case."
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "LR-rotation",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533938",
+    "key": "quiz-6-austin-phipps-files-question_2533938",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 11",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\">This is a 2-3 tree.<\/span><\/p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12pt;\"><img class=\"img-responsive atto_image_button_text-bottom\" role=\"presentation\" src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_13.png\" alt=\"\" width=\"350\" height=\"204\" loading=\"lazy\"><\/span><\/p>",
+    "explanationHtml": "",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "True",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533926_match_1",
+    "key": "quiz-6-austin-phipps-files-question_2533926-match-1",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 12 ((a) First value of level 1)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p id=\"yui_3_17_2_1_1626464149508_3577\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the tree problems in the quiz, use the&nbsp;<strong id=\"yui_3_17_2_1_1626464149508_3605\">level-by-level order<\/strong> to represent them. For a sample tree below, the root value 5 is the level 0. And 7, 2, and 50 are the level 1. Thus, if someone asks you to write the second value of the level 1, the answer should be 2. As another example, if someone asks you to identify the third value of the level 1, it should be 50.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_27.png\" alt=\"2_3_tree_05_27.png\" width=\"244\" height=\"147\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Now, this is the question. To the following 2-3 tree below, <strong>add<\/strong> a number <strong>\"80\"<\/strong>&nbsp;and then <strong>add<\/strong> a number <strong>\"90\"<\/strong>.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_33.png\" alt=\"2_3_tree_05_33.png\" width=\"236\" height=\"154\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the resulting 2-3 tree, select the correct answer to the questions.<\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>(a) First value of level 1<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The result 2-3 tree:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 50, 80<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 10, 70, 90<\/span><\/p><p><\/p>",
+    "options": [
+      "10",
+      "50",
+      "None of these.",
+      "80",
+      "70"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "50",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533926_match_2",
+    "key": "quiz-6-austin-phipps-files-question_2533926-match-2",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 12 ((b) Last value of level 1)",
+    "questionType": "matching_subquestion",
+    "inputType": "single",
+    "stemHtml": "<p id=\"yui_3_17_2_1_1626464149508_3577\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the tree problems in the quiz, use the&nbsp;<strong id=\"yui_3_17_2_1_1626464149508_3605\">level-by-level order<\/strong> to represent them. For a sample tree below, the root value 5 is the level 0. And 7, 2, and 50 are the level 1. Thus, if someone asks you to write the second value of the level 1, the answer should be 2. As another example, if someone asks you to identify the third value of the level 1, it should be 50.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_27.png\" alt=\"2_3_tree_05_27.png\" width=\"244\" height=\"147\" loading=\"lazy\"><\/span><\/p>\n<p>&nbsp;<\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Now, this is the question. To the following 2-3 tree below, <strong>add<\/strong> a number <strong>\"80\"<\/strong>&nbsp;and then <strong>add<\/strong> a number <strong>\"90\"<\/strong>.&nbsp;<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img src=\"./Quiz 6_ Austin Phipps_files/2_3_tree_05_33.png\" alt=\"2_3_tree_05_33.png\" width=\"236\" height=\"154\" loading=\"lazy\"><\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">For the resulting 2-3 tree, select the correct answer to the questions.<\/span><\/p>\n<p>&nbsp;<\/p><div class=\"practice-subprompt\"><strong>(b) Last value of level 1<\/strong><\/div>",
+    "explanationHtml": "<p class=\"neutral_comments\"><\/p><p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">The result 2-3 tree:<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 50, 80<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Level 0: 10, 70, 90<\/span><\/p><p><\/p>",
+    "options": [
+      "90",
+      "80",
+      "None of these.",
+      "50",
+      "70"
+    ],
+    "correctIndex": 0,
+    "originalWrongAnswer": "80",
+    "wasMissed": true
+  },
+  {
+    "id": "question_2533929",
+    "key": "quiz-6-austin-phipps-files-question_2533929",
+    "quizLabel": "Quiz 6",
+    "questionLabel": "Question 13",
+    "questionType": "true_false_question",
+    "inputType": "single",
+    "stemHtml": "<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif; color: #e62429;\">[<strong>Bonus Problem - 0.5 Points<\/strong>] This is a bonus problem. A fully correct answer will earn you 0.5 bonus points.<\/span><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">Assume that you have <strong><em>n<\/em><\/strong> coins with one fake coin that is lighter than the rest of coins. For the problem, you have to assume that the <em>n<\/em> is a big number. Now, you are going to find the fake coin using the algorithm you learned in the class with a balance scale like below. The <strong>time complexity<\/strong> of the algorithm is <strong>theta(log n)<\/strong>. Is this true or false?<\/span><br><br><\/p>\n<p><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\"><img style=\"display: block; margin-left: auto; margin-right: auto;\" role=\"presentation\" src=\"./Quiz 6_ Austin Phipps_files/download.png\" alt=\"download.png\" width=\"346\" height=\"156\" data-decorative=\"true\" loading=\"lazy\">&nbsp;&nbsp;<\/span><\/p>",
+    "explanationHtml": "<p class=\"neutral_comments\"><span style=\"font-size: 12pt; font-family: arial, helvetica, sans-serif;\">If the input number n is odd and you set aside the fake coin at the first trial, you can find it after one comparison. So, the best case time complexity is just 1. Thus, the time complexity of the algorithm can't be theta(log n).&nbsp;<\/span><\/p>",
+    "options": [
+      "True",
+      "False"
+    ],
+    "correctIndex": 1,
+    "originalWrongAnswer": "True",
+    "wasMissed": true
+  }
+];
+
+    const state = {
+      mode: '',
+      sourceQuestions: [],
+      activeQuestions: [],
+      lastResults: [],
+      lastSubmitted: false,
+    };
+
+    const startShell = document.getElementById('start-shell');
+    const quizShell = document.getElementById('quiz-shell');
+    const summaryBar = document.getElementById('summary-bar');
+    const resultBanner = document.getElementById('result-banner');
+    const questionList = document.getElementById('question-list');
+    const questionCountPill = document.getElementById('question-count-pill');
+    const quizCountPill = document.getElementById('quiz-count-pill');
+    const modePill = document.getElementById('mode-pill');
+    const submitButton = document.getElementById('submit-button');
+    const retryButton = document.getElementById('retry-button');
+    const resetButton = document.getElementById('reset-button');
+    const startMissedButton = document.getElementById('start-missed-button');
+    const startAllButton = document.getElementById('start-all-button');
+    const startMissedCount = document.getElementById('start-missed-count');
+    const startAllCount = document.getElementById('start-all-count');
+
+    function shuffle(items) {
+      const copy = [...items];
+      for (let index = copy.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+      }
+      return copy;
+    }
+
+    function prepareQuestion(question) {
+      const optionOrder = shuffle(question.options.map((option, index) => ({ option, index })));
+      const renderedCorrectIndices = question.inputType === 'multiple'
+        ? optionOrder
+            .map((entry, index) => question.correctIndices.includes(entry.index) ? index : -1)
+            .filter(index => index !== -1)
+        : undefined;
+      return {
+        ...question,
+        renderedOptions: optionOrder.map(entry => entry.option),
+        renderedCorrectIndex: optionOrder.findIndex(entry => entry.index === question.correctIndex),
+        renderedCorrectIndices,
+      };
+    }
+
+    function showQuizUi() {
+      startShell.style.display = 'none';
+      summaryBar.className = 'summary-bar visible';
+      quizShell.className = 'quiz-shell visible';
+    }
+
+    function pickAllQuestionRound() {
+      return shuffle(allQuestions).slice(0, Math.min(20, allQuestions.length));
+    }
+
+    function startQuiz(mode, questions) {
+      state.mode = mode;
+      state.sourceQuestions = [...questions];
+      state.activeQuestions = questions.map(prepareQuestion);
+      state.lastResults = [];
+      state.lastSubmitted = false;
+      retryButton.disabled = true;
+      showQuizUi();
+      renderBanner();
+      renderQuestions();
+      updatePills();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updatePills() {
+      const quizNames = new Set(state.activeQuestions.map(question => question.quizLabel));
+      questionCountPill.textContent = `${state.activeQuestions.length} practice ${state.activeQuestions.length === 1 ? 'question' : 'questions'}`;
+      quizCountPill.textContent = `${quizNames.size} source ${quizNames.size === 1 ? 'quiz' : 'quizzes'}`;
+      modePill.textContent = state.mode === 'missed'
+        ? 'Round: missed-before mode'
+        : 'Round: 20 random from all questions';
+    }
+
+    function renderBanner(summary) {
+      if (!summary) {
+        resultBanner.className = 'result-banner';
+        resultBanner.innerHTML = '';
+        return;
+      }
+
+      const message = summary.correctCount === summary.total
+        ? 'Everything correct. If you want another pass, start over to reshuffle the same concepts.'
+        : `${summary.incorrectCount} ${summary.incorrectCount === 1 ? 'question remains' : 'questions remain'} for the retry round.`;
+
+      resultBanner.className = 'result-banner visible';
+      resultBanner.innerHTML = `
+        <strong>Score: ${summary.correctCount} / ${summary.total}</strong>
+        <div>${message}</div>
+      `;
+    }
+
+    function renderQuestions() {
+      if (!state.activeQuestions.length) {
+        questionList.innerHTML = `
+          <div class="empty-state">
+            <strong>No questions to show.</strong>
+            <div>That usually means every missed question in the current round is already correct.</div>
+          </div>
+        `;
+        return;
+      }
+
+      questionList.innerHTML = state.activeQuestions.map((question, index) => {
+        const result = state.lastResults.find(entry => entry.key === question.key);
+        const cardStatus = result ? (result.correct ? 'correct' : 'incorrect') : '';
+        const feedbackStatus = result ? (result.correct ? 'correct' : 'incorrect') : '';
+        const feedbackVisible = result ? 'visible' : '';
+        const statusChip = result
+          ? `<span class="status-chip ${result.correct ? 'correct' : 'incorrect'}">${result.correct ? 'Correct' : 'Incorrect'}</span>`
+          : '';
+
+        const optionsHtml = question.renderedOptions.map((optionHtml, optionIndex) => {
+          const optionId = `${question.key}-option-${optionIndex}`;
+          const selectedIndexes = result ? (result.selectedIndices || (result.selectedIndex !== -1 ? [result.selectedIndex] : [])) : [];
+          const checked = selectedIndexes.includes(optionIndex) ? 'checked' : '';
+          let optionClass = 'option';
+
+          if (result) {
+            const isCorrectOption = question.inputType === 'multiple'
+              ? question.renderedCorrectIndices.includes(optionIndex)
+              : optionIndex === question.renderedCorrectIndex;
+
+            if (isCorrectOption) {
+              optionClass += ' correct';
+            } else if (selectedIndexes.includes(optionIndex) && !result.correct) {
+              optionClass += ' incorrect';
+            }
+          }
+
+          const inputType = question.inputType === 'multiple' ? 'checkbox' : 'radio';
+
+          return `
+            <div class="${optionClass}">
+              <input type="${inputType}" id="${optionId}" name="${question.key}" value="${optionIndex}" ${checked} ${state.lastSubmitted ? 'disabled' : ''}>
+              <label for="${optionId}">
+                <span class="option-marker" aria-hidden="true"></span>
+                <span class="option-content">${optionHtml}</span>
+              </label>
+            </div>
+          `;
+        }).join('');
+
+        const selectedText = result && (result.selectedIndices || []).length
+          ? result.selectedIndices.map(index => question.renderedOptions[index]).join('<br>')
+          : (result && result.selectedIndex !== -1
+              ? question.renderedOptions[result.selectedIndex]
+              : '<em>No answer selected.</em>');
+
+        const correctText = question.inputType === 'multiple'
+          ? question.renderedCorrectIndices.map(index => question.renderedOptions[index]).join('<br>')
+          : question.renderedOptions[question.renderedCorrectIndex];
+        const originalWrong = question.originalWrongAnswer
+          ? `<div class="feedback-line"><strong>Original Canvas miss:</strong> ${question.originalWrongAnswer}</div>`
+          : '';
+        const explanation = question.explanationHtml
+          ? `<div class="feedback-line"><strong>Explanation:</strong><div>${question.explanationHtml}</div></div>`
+          : '';
+
+        return `
+          <article class="question-card ${cardStatus}" data-key="${question.key}">
+            <div class="question-head">
+              <div>
+                <div class="question-title">${index + 1}. ${question.questionLabel}</div>
+                <div class="question-meta">
+                  <span class="tag">${question.quizLabel}</span>
+                  <span>${question.questionType.replaceAll('_', ' ')}</span>
+                </div>
+              </div>
+              <div>${statusChip}</div>
+            </div>
+            <div class="question-body">
+              <div class="stem">${question.stemHtml}</div>
+              <div class="option-list">${optionsHtml}</div>
+              <div class="feedback ${feedbackStatus} ${feedbackVisible}">
+                <div class="feedback-line"><strong>Your answer:</strong> ${selectedText}</div>
+                <div class="feedback-line"><strong>Correct answer:</strong> ${correctText}</div>
+                ${originalWrong}
+                ${explanation}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function submitQuiz() {
+      const results = state.activeQuestions.map(question => {
+        if (question.inputType === 'multiple') {
+          const selectedIndices = [...document.querySelectorAll(`input[name="${CSS.escape(question.key)}"]:checked`)]
+            .map(node => Number(node.value))
+            .sort((a, b) => a - b);
+          const correctIndices = [...question.renderedCorrectIndices].sort((a, b) => a - b);
+          const correct = selectedIndices.length === correctIndices.length
+            && selectedIndices.every((value, index) => value === correctIndices[index]);
+
+          return {
+            key: question.key,
+            selectedIndices,
+            correct,
+          };
+        }
+
+        const selected = document.querySelector(`input[name="${CSS.escape(question.key)}"]:checked`);
+        const selectedIndex = selected ? Number(selected.value) : -1;
+        return {
+          key: question.key,
+          selectedIndex,
+          selectedIndices: selectedIndex === -1 ? [] : [selectedIndex],
+          correct: selectedIndex === question.renderedCorrectIndex,
+        };
+      });
+
+      state.lastResults = results;
+      state.lastSubmitted = true;
+
+      const correctCount = results.filter(result => result.correct).length;
+      const incorrectCount = results.length - correctCount;
+      retryButton.disabled = incorrectCount === 0;
+
+      renderBanner({
+        total: results.length,
+        correctCount,
+        incorrectCount,
+      });
+      renderQuestions();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function retryMissedOnly() {
+      const missedKeys = new Set(
+        state.lastResults
+          .filter(result => !result.correct)
+          .map(result => result.key)
+      );
+      const missedQuestions = state.activeQuestions.filter(question => missedKeys.has(question.key));
+      startQuiz(state.mode, missedQuestions);
+    }
+
+    submitButton.addEventListener('click', submitQuiz);
+    retryButton.addEventListener('click', retryMissedOnly);
+    resetButton.addEventListener('click', () => {
+      const nextQuestions = state.mode === 'missed' ? [...missedQuestions] : pickAllQuestionRound();
+      startQuiz(state.mode, nextQuestions);
+    });
+    startMissedButton.addEventListener('click', () => startQuiz('missed', missedQuestions));
+    startAllButton.addEventListener('click', () => startQuiz('all', pickAllQuestionRound()));
+
+    startMissedCount.textContent = `${missedQuestions.length} previously missed question${missedQuestions.length === 1 ? '' : 's'}`;
+    startAllCount.textContent = `${allQuestions.length} total supported question${allQuestions.length === 1 ? '' : 's'}`;
+  </script>
+</body>
+</html>
