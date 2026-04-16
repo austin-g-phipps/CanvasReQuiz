@@ -488,6 +488,96 @@ function buildHtml(allQuestions, missedQuestions) {
       margin-bottom: 0.9rem;
     }
 
+    .ai-panel {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .ai-grid {
+      display: grid;
+      gap: 0.8rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .field {
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .field label,
+    .checkbox-row label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .field input {
+      width: 100%;
+      padding: 0.8rem 0.9rem;
+      border: 1px solid var(--canvas-border);
+      border-radius: 10px;
+      font: inherit;
+      color: var(--text);
+      background: white;
+    }
+
+    .field-help {
+      font-size: 0.82rem;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+
+    .provider-stack {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .provider-card {
+      border: 1px solid var(--canvas-border);
+      border-radius: 14px;
+      padding: 0.95rem;
+      background: #fbfdff;
+    }
+
+    .provider-card h4 {
+      margin: 0 0 0.55rem;
+      font-size: 1rem;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .checkbox-row input {
+      width: 1rem;
+      height: 1rem;
+      margin: 0;
+    }
+
+    .inline-note {
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .ai-status {
+      min-height: 1.35rem;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .ai-status.error {
+      color: var(--canvas-red);
+    }
+
+    .ai-status.success {
+      color: var(--canvas-green);
+    }
+
     .toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -828,6 +918,63 @@ function buildHtml(allQuestions, missedQuestions) {
             </div>
             <button class="button-primary" id="start-all-button" type="button">Start 20 Random Questions</button>
           </div>
+
+          <div class="mode-card">
+            <h3>AI-Generated Review</h3>
+            <p>Uses your missed questions as source material, then asks Codex to write similar new questions with different values and answer choices.</p>
+            <div class="mode-stats">
+              <div class="pill" id="start-ai-count"></div>
+              <div class="pill">Supports OpenAI and Gemini</div>
+            </div>
+            <div class="ai-panel">
+              <div class="provider-stack">
+                <div class="provider-card">
+                  <h4>OpenAI / Codex</h4>
+                  <div class="ai-grid">
+                    <div class="field">
+                      <label for="ai-token-input">API Token</label>
+                      <input id="ai-token-input" type="password" placeholder="sk-..." autocomplete="off">
+                      <div class="field-help">Users can paste their own token here. A project default can also be set in <code>quiz-ai-config.js</code>.</div>
+                    </div>
+                    <div class="field">
+                      <label for="ai-model-input">Model</label>
+                      <input id="ai-model-input" type="text" value="gpt-5.2-codex" autocomplete="off">
+                      <div class="field-help">Default is a Codex-optimized model. You can change it per user.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="provider-card">
+                  <h4>Google Gemini</h4>
+                  <div class="ai-grid">
+                    <div class="field">
+                      <label for="gemini-token-input">Gemini API Token</label>
+                      <input id="gemini-token-input" type="password" placeholder="AIza..." autocomplete="off">
+                      <div class="field-help">If this is filled in, the page will use Gemini instead of OpenAI for generated review questions.</div>
+                    </div>
+                    <div class="field">
+                      <label for="gemini-model-input">Gemini Model</label>
+                      <input id="gemini-model-input" type="text" value="gemini-2.5-flash" autocomplete="off">
+                      <div class="field-help">This uses Gemini's <code>generateContent</code> endpoint with JSON mode.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label for="ai-count-input">Generated Questions</label>
+                  <input id="ai-count-input" type="number" min="5" max="20" value="10">
+                  <div class="field-help">Choose between 5 and 20 generated questions.</div>
+                </div>
+              </div>
+              <div class="checkbox-row">
+                <input id="ai-save-token-input" type="checkbox">
+                <label for="ai-save-token-input">Save entered tokens locally in this browser</label>
+              </div>
+              <div class="inline-note">If a Gemini token is provided, Gemini is used. Otherwise the page falls back to OpenAI/Codex. Any token embedded in a static file is visible to anyone who can read that file.</div>
+              <button class="button-primary" id="start-ai-button" type="button">Generate Similar Questions</button>
+              <div class="ai-status" id="ai-status" aria-live="polite"></div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -858,9 +1005,12 @@ function buildHtml(allQuestions, missedQuestions) {
     </div>
   </main>
 
+  <script src="./quiz-ai-config.js"></script>
   <script>
     const allQuestions = ${allQuestionsJson};
     const missedQuestions = ${missedQuestionsJson};
+    const DEFAULT_AI_CONFIG = window.PRACTICE_QUIZ_AI_CONFIG || {};
+    const AI_STORAGE_KEY = 'practiceQuizAiConfig';
 
     const state = {
       mode: '',
@@ -868,6 +1018,7 @@ function buildHtml(allQuestions, missedQuestions) {
       activeQuestions: [],
       lastResults: [],
       lastSubmitted: false,
+      isGenerating: false,
     };
 
     const startShell = document.getElementById('start-shell');
@@ -885,6 +1036,61 @@ function buildHtml(allQuestions, missedQuestions) {
     const startAllButton = document.getElementById('start-all-button');
     const startMissedCount = document.getElementById('start-missed-count');
     const startAllCount = document.getElementById('start-all-count');
+    const startAiCount = document.getElementById('start-ai-count');
+    const startAiButton = document.getElementById('start-ai-button');
+    const aiTokenInput = document.getElementById('ai-token-input');
+    const aiModelInput = document.getElementById('ai-model-input');
+    const geminiTokenInput = document.getElementById('gemini-token-input');
+    const geminiModelInput = document.getElementById('gemini-model-input');
+    const aiCountInput = document.getElementById('ai-count-input');
+    const aiSaveTokenInput = document.getElementById('ai-save-token-input');
+    const aiStatus = document.getElementById('ai-status');
+
+    function escapeHtml(value = '') {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function plainTextToHtml(value = '') {
+      return escapeHtml(String(value).trim()).replace(/\\n/g, '<br>');
+    }
+
+    function htmlToText(html = '') {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+      return (wrapper.textContent || wrapper.innerText || '').replace(/\\s+/g, ' ').trim();
+    }
+
+    function getStoredAiConfig() {
+      try {
+        return JSON.parse(localStorage.getItem(AI_STORAGE_KEY) || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function saveAiConfig(config) {
+      localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(config));
+    }
+
+    function setAiStatus(message, tone = '') {
+      aiStatus.className = tone ? \`ai-status \${tone}\` : 'ai-status';
+      aiStatus.textContent = message;
+    }
+
+    function applyAiConfigDefaults() {
+      const stored = getStoredAiConfig();
+      aiTokenInput.value = stored.openaiApiKey || DEFAULT_AI_CONFIG.defaultApiKey || '';
+      aiModelInput.value = stored.openaiModel || DEFAULT_AI_CONFIG.defaultModel || 'gpt-5.2-codex';
+      geminiTokenInput.value = stored.geminiApiKey || DEFAULT_AI_CONFIG.defaultGeminiApiKey || '';
+      geminiModelInput.value = stored.geminiModel || DEFAULT_AI_CONFIG.defaultGeminiModel || 'gemini-2.5-flash';
+      aiCountInput.value = String(stored.count || 10);
+      aiSaveTokenInput.checked = Boolean(stored.openaiApiKey || stored.geminiApiKey);
+    }
 
     function shuffle(items) {
       const copy = [...items];
@@ -940,7 +1146,9 @@ function buildHtml(allQuestions, missedQuestions) {
       quizCountPill.textContent = \`\${quizNames.size} source \${quizNames.size === 1 ? 'quiz' : 'quizzes'}\`;
       modePill.textContent = state.mode === 'missed'
         ? 'Round: missed-before mode'
-        : 'Round: 20 random from all questions';
+        : state.mode === 'all'
+          ? 'Round: 20 random from all questions'
+          : 'Round: AI-generated review';
     }
 
     function renderBanner(summary) {
@@ -1108,17 +1316,282 @@ function buildHtml(allQuestions, missedQuestions) {
       startQuiz(state.mode, missedQuestions);
     }
 
+    function getResponseText(responseData) {
+      if (typeof responseData.output_text === 'string' && responseData.output_text.trim()) {
+        return responseData.output_text;
+      }
+
+      const texts = [];
+      for (const item of responseData.output || []) {
+        for (const content of item.content || []) {
+          if (typeof content.text === 'string') {
+            texts.push(content.text);
+          }
+        }
+      }
+      return texts.join('\\n').trim();
+    }
+
+    function summarizeMissedQuestion(question) {
+      const correctAnswer = question.inputType === 'multiple'
+        ? question.correctIndices.map(index => htmlToText(question.options[index])).join(' | ')
+        : htmlToText(question.options[question.correctIndex]);
+
+      return {
+        question_label: question.questionLabel,
+        question_type: question.questionType,
+        prompt: htmlToText(question.stemHtml),
+        options: question.options.map(option => htmlToText(option)),
+        correct_answer: correctAnswer,
+        explanation: htmlToText(question.explanationHtml),
+      };
+    }
+
+    function normalizeGeneratedQuestions(payload) {
+      if (!payload || !Array.isArray(payload.questions)) {
+        throw new Error('The AI response did not include a "questions" array.');
+      }
+
+      const batchId = Date.now();
+
+      return payload.questions.map((question, index) => {
+        if (!question || !Array.isArray(question.options) || question.options.length < 2) {
+          throw new Error(\`Generated question \${index + 1} is missing answer choices.\`);
+        }
+
+        const correctIndex = Number(question.correct_index);
+        if (!Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex >= question.options.length) {
+          throw new Error(\`Generated question \${index + 1} has an invalid correct_index.\`);
+        }
+
+        return {
+          id: \`ai-generated-\${batchId}-\${index + 1}\`,
+          key: \`ai-generated-\${batchId}-\${index + 1}\`,
+          quizLabel: 'AI Generated Review',
+          questionLabel: question.question_label || \`Generated Question \${index + 1}\`,
+          questionType: 'ai_generated_question',
+          inputType: 'single',
+          stemHtml: plainTextToHtml(question.question_text || ''),
+          explanationHtml: plainTextToHtml(question.explanation || ''),
+          options: question.options.map(option => plainTextToHtml(option || '')),
+          correctIndex,
+          originalWrongAnswer: '',
+          wasMissed: false,
+        };
+      });
+    }
+
+    async function generateAiQuestions() {
+      const openAiApiKey = aiTokenInput.value.trim();
+      const openAiModel = aiModelInput.value.trim() || 'gpt-5.2-codex';
+      const geminiApiKey = geminiTokenInput.value.trim();
+      const geminiModel = geminiModelInput.value.trim() || 'gemini-2.5-flash';
+      const requestedCount = Math.max(5, Math.min(20, Number(aiCountInput.value) || 10));
+      const provider = geminiApiKey ? 'gemini' : 'openai';
+
+      if (!geminiApiKey && !openAiApiKey) {
+        setAiStatus('Enter either an OpenAI/Codex token or a Gemini token before generating questions.', 'error');
+        return;
+      }
+
+      state.isGenerating = true;
+      startAiButton.disabled = true;
+      setAiStatus('Generating similar questions from your missed set...');
+
+      if (aiSaveTokenInput.checked) {
+        saveAiConfig({
+          openaiApiKey: openAiApiKey,
+          openaiModel: openAiModel,
+          geminiApiKey,
+          geminiModel,
+          count: requestedCount,
+        });
+      } else {
+        saveAiConfig({
+          openaiApiKey: '',
+          openaiModel: openAiModel,
+          geminiApiKey: '',
+          geminiModel,
+          count: requestedCount,
+        });
+      }
+
+      const sourceQuestions = missedQuestions.map(summarizeMissedQuestion);
+      const prompt = {
+        task: 'Create similar but not identical practice questions for an algorithms midterm review.',
+        rules: [
+          'Return valid JSON only.',
+          'Create new questions that test the same skills and concepts as the source questions but use different numbers, node values, arrays, graph labels, or answer choices.',
+          'Do not copy source prompts verbatim.',
+          'Each generated question must be a single-answer multiple-choice question.',
+          'Each question must have exactly 4 answer options.',
+          'Each question must have exactly 1 correct answer.',
+          'Use plain text only in question_text, options, and explanation. No markdown, no HTML, no code fences.',
+          'Keep the questions concise and quiz-like.',
+        ],
+        output_schema: {
+          questions: [
+            {
+              question_label: 'short title',
+              question_text: 'plain text question',
+              options: ['choice A', 'choice B', 'choice C', 'choice D'],
+              correct_index: 0,
+              explanation: 'short explanation',
+            }
+          ]
+        },
+        requested_question_count: requestedCount,
+        source_questions: sourceQuestions,
+      };
+
+      try {
+        let responseText = '';
+
+        if (provider === 'gemini') {
+          const response = await fetch(
+            \`\${(DEFAULT_AI_CONFIG.geminiApiBase || 'https://generativelanguage.googleapis.com/v1beta')}/models/\${encodeURIComponent(geminiModel)}:generateContent?key=\${encodeURIComponent(geminiApiKey)}\`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                systemInstruction: {
+                  parts: [
+                    {
+                      text: 'You generate algorithm practice questions. Follow the user JSON schema exactly and only return JSON.',
+                    }
+                  ],
+                },
+                contents: [
+                  {
+                    parts: [
+                      {
+                        text: JSON.stringify(prompt),
+                      }
+                    ],
+                  }
+                ],
+                generationConfig: {
+                  response_mime_type: 'application/json',
+                  response_schema: {
+                    type: 'OBJECT',
+                    properties: {
+                      questions: {
+                        type: 'ARRAY',
+                        items: {
+                          type: 'OBJECT',
+                          properties: {
+                            question_label: { type: 'STRING' },
+                            question_text: { type: 'STRING' },
+                            options: {
+                              type: 'ARRAY',
+                              items: { type: 'STRING' },
+                            },
+                            correct_index: { type: 'INTEGER' },
+                            explanation: { type: 'STRING' },
+                          },
+                          required: ['question_label', 'question_text', 'options', 'correct_index', 'explanation'],
+                        },
+                      },
+                    },
+                    required: ['questions'],
+                  },
+                },
+              }),
+            }
+          );
+
+          const responseData = await response.json();
+          if (!response.ok) {
+            const message = responseData?.error?.message || 'Gemini request failed.';
+            throw new Error(message);
+          }
+
+          responseText = responseData?.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('\\n').trim() || '';
+        } else {
+          const response = await fetch((DEFAULT_AI_CONFIG.apiBase || 'https://api.openai.com/v1/responses'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': \`Bearer \${openAiApiKey}\`,
+            },
+            body: JSON.stringify({
+              model: openAiModel,
+              input: [
+                {
+                  role: 'system',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: 'You generate algorithm practice questions. Follow the user JSON schema exactly and only return JSON.',
+                    }
+                  ],
+                },
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: JSON.stringify(prompt),
+                    }
+                  ],
+                }
+              ],
+              text: {
+                format: {
+                  type: 'json_object',
+                },
+              },
+            }),
+          });
+
+          const responseData = await response.json();
+          if (!response.ok) {
+            const message = responseData?.error?.message || 'OpenAI request failed.';
+            throw new Error(message);
+          }
+
+          responseText = getResponseText(responseData);
+        }
+
+        if (!responseText) {
+          throw new Error('The AI response was empty.');
+        }
+
+        const generatedPayload = JSON.parse(responseText);
+        const generatedQuestions = normalizeGeneratedQuestions(generatedPayload);
+        setAiStatus(\`Generated \${generatedQuestions.length} new question\${generatedQuestions.length === 1 ? '' : 's'} using \${provider === 'gemini' ? 'Gemini' : 'OpenAI/Codex'}.\`, 'success');
+        startQuiz('generated', generatedQuestions);
+      } catch (error) {
+        setAiStatus(error.message || 'Failed to generate questions.', 'error');
+      } finally {
+        state.isGenerating = false;
+        startAiButton.disabled = false;
+      }
+    }
+
     submitButton.addEventListener('click', submitQuiz);
     retryButton.addEventListener('click', retryMissedOnly);
     resetButton.addEventListener('click', () => {
-      const nextQuestions = state.mode === 'missed' ? [...missedQuestions] : pickAllQuestionRound();
+      const nextQuestions = state.mode === 'missed'
+        ? [...missedQuestions]
+        : state.mode === 'all'
+          ? pickAllQuestionRound()
+          : [...state.sourceQuestions];
       startQuiz(state.mode, nextQuestions);
     });
     startMissedButton.addEventListener('click', () => startQuiz('missed', missedQuestions));
     startAllButton.addEventListener('click', () => startQuiz('all', pickAllQuestionRound()));
+    startAiButton.addEventListener('click', generateAiQuestions);
 
     startMissedCount.textContent = \`\${missedQuestions.length} previously missed question\${missedQuestions.length === 1 ? '' : 's'}\`;
     startAllCount.textContent = \`\${allQuestions.length} total supported question\${allQuestions.length === 1 ? '' : 's'}\`;
+    startAiCount.textContent = \`Based on \${missedQuestions.length} missed source question\${missedQuestions.length === 1 ? '' : 's'}\`;
+    applyAiConfigDefaults();
+    if (window.location.protocol === 'file:') {
+      setAiStatus('Local file mode can trigger browser security restrictions for API calls. If generation fails, serve this folder over http://localhost instead of opening the file directly.', '');
+    }
   </script>
 </body>
 </html>`;
