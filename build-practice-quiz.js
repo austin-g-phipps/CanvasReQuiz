@@ -456,10 +456,57 @@ function buildHtml(allQuestions, missedQuestions) {
       max-width: 46rem;
     }
 
+    .start-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 0 1.2rem 1.2rem;
+      background: linear-gradient(180deg, #fafcfe 0%, #f0f6fb 100%);
+      border-bottom: 1px solid #e6edf3;
+    }
+
+    .start-tab {
+      border: 1px solid var(--canvas-border);
+      border-radius: 999px;
+      padding: 0.65rem 0.95rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--muted);
+      box-shadow: 0 8px 20px rgba(20, 37, 63, 0.05);
+    }
+
+    .start-tab.active {
+      background: linear-gradient(180deg, #2474c7 0%, #0d59a0 100%);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 10px 24px rgba(13, 89, 160, 0.24);
+    }
+
+    .beta-badge {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 0.45rem;
+      padding: 0.18rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(181, 71, 8, 0.12);
+      color: var(--canvas-orange);
+    }
+
+    .start-panel {
+      display: none;
+      padding: 1.2rem;
+    }
+
+    .start-panel.active {
+      display: block;
+    }
+
     .mode-grid {
       display: grid;
       gap: 1rem;
-      padding: 1.2rem;
     }
 
     .mode-card {
@@ -897,30 +944,37 @@ function buildHtml(allQuestions, missedQuestions) {
       <div class="start-card">
         <div class="start-head">
           <h2>Choose A Study Mode</h2>
-          <p>Use the focused mode to drill exactly what you missed before, or take a mixed 20-question practice run from the full set of supported quiz questions.</p>
+          <p>Use the standard study tab for direct quiz review, or open the AI tab for generated practice based on your missed questions.</p>
         </div>
-        <div class="mode-grid">
-          <div class="mode-card">
-            <h3>Missed Before</h3>
-            <p>Uses the same behavior you liked: only questions you previously missed, with retry-on-missed after submission.</p>
-            <div class="mode-stats">
-              <div class="pill" id="start-missed-count"></div>
+        <div class="start-tabs" role="tablist" aria-label="Study mode groups">
+          <button class="start-tab active" id="study-tab-button" type="button" role="tab" aria-selected="true" aria-controls="study-panel">Study Modes</button>
+          <button class="start-tab" id="ai-tab-button" type="button" role="tab" aria-selected="false" aria-controls="ai-panel-tab">AI Mode <span class="beta-badge">Beta</span></button>
+        </div>
+        <div class="start-panel active" id="study-panel" role="tabpanel" aria-labelledby="study-tab-button">
+          <div class="mode-grid">
+            <div class="mode-card">
+              <h3>Missed Before</h3>
+              <p>Uses the same behavior you liked: only questions you previously missed, with retry-on-missed after submission.</p>
+              <div class="mode-stats">
+                <div class="pill" id="start-missed-count"></div>
+              </div>
+              <button class="button-primary" id="start-missed-button" type="button">Start Missed-Only Quiz</button>
             </div>
-            <button class="button-primary" id="start-missed-button" type="button">Start Missed-Only Quiz</button>
-          </div>
 
-          <div class="mode-card">
-            <h3>All Questions</h3>
-            <p>Builds a fresh 20-question random quiz from the full question pool, including ones you answered correctly before.</p>
-            <div class="mode-stats">
-              <div class="pill" id="start-all-count"></div>
-              <div class="pill">20 random questions per run</div>
+            <div class="mode-card">
+              <h3>All Questions</h3>
+              <p>Builds a fresh 20-question random quiz from the full question pool, including ones you answered correctly before.</p>
+              <div class="mode-stats">
+                <div class="pill" id="start-all-count"></div>
+                <div class="pill">20 random questions per run</div>
+              </div>
+              <button class="button-primary" id="start-all-button" type="button">Start 20 Random Questions</button>
             </div>
-            <button class="button-primary" id="start-all-button" type="button">Start 20 Random Questions</button>
           </div>
-
+        </div>
+        <div class="start-panel" id="ai-panel-tab" role="tabpanel" aria-labelledby="ai-tab-button">
           <div class="mode-card">
-            <h3>AI-Generated Review</h3>
+            <h3>AI-Generated Review <span class="beta-badge">Beta</span></h3>
             <p>Uses your missed questions as source material, then asks Codex to write similar new questions with different values and answer choices.</p>
             <div class="mode-stats">
               <div class="pill" id="start-ai-count"></div>
@@ -994,6 +1048,7 @@ function buildHtml(allQuestions, missedQuestions) {
           Questions are shuffled each time you start over. The retry flow keeps only the ones you missed on your latest attempt.
         </div>
         <div class="button-row">
+          <button class="button-secondary" id="home-button" type="button">Go Home</button>
           <button class="button-primary" id="submit-button" type="button">Submit Quiz</button>
           <button class="button-secondary" id="retry-button" type="button" disabled>Retry Missed Only</button>
           <button class="button-secondary" id="reset-button" type="button">Start Over</button>
@@ -1022,6 +1077,10 @@ function buildHtml(allQuestions, missedQuestions) {
     };
 
     const startShell = document.getElementById('start-shell');
+    const studyTabButton = document.getElementById('study-tab-button');
+    const aiTabButton = document.getElementById('ai-tab-button');
+    const studyPanel = document.getElementById('study-panel');
+    const aiPanelTab = document.getElementById('ai-panel-tab');
     const quizShell = document.getElementById('quiz-shell');
     const summaryBar = document.getElementById('summary-bar');
     const resultBanner = document.getElementById('result-banner');
@@ -1029,6 +1088,7 @@ function buildHtml(allQuestions, missedQuestions) {
     const questionCountPill = document.getElementById('question-count-pill');
     const quizCountPill = document.getElementById('quiz-count-pill');
     const modePill = document.getElementById('mode-pill');
+    const homeButton = document.getElementById('home-button');
     const submitButton = document.getElementById('submit-button');
     const retryButton = document.getElementById('retry-button');
     const resetButton = document.getElementById('reset-button');
@@ -1120,6 +1180,23 @@ function buildHtml(allQuestions, missedQuestions) {
       startShell.style.display = 'none';
       summaryBar.className = 'summary-bar visible';
       quizShell.className = 'quiz-shell visible';
+    }
+
+    function setStartTab(tabName) {
+      const showingAi = tabName === 'ai';
+      studyTabButton.className = showingAi ? 'start-tab' : 'start-tab active';
+      aiTabButton.className = showingAi ? 'start-tab active' : 'start-tab';
+      studyTabButton.setAttribute('aria-selected', showingAi ? 'false' : 'true');
+      aiTabButton.setAttribute('aria-selected', showingAi ? 'true' : 'false');
+      studyPanel.className = showingAi ? 'start-panel' : 'start-panel active';
+      aiPanelTab.className = showingAi ? 'start-panel active' : 'start-panel';
+    }
+
+    function showHomeUi() {
+      startShell.style.display = '';
+      summaryBar.className = 'summary-bar';
+      quizShell.className = 'quiz-shell';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function pickAllQuestionRound() {
@@ -1572,6 +1649,7 @@ function buildHtml(allQuestions, missedQuestions) {
     }
 
     submitButton.addEventListener('click', submitQuiz);
+    homeButton.addEventListener('click', showHomeUi);
     retryButton.addEventListener('click', retryMissedOnly);
     resetButton.addEventListener('click', () => {
       const nextQuestions = state.mode === 'missed'
@@ -1584,6 +1662,8 @@ function buildHtml(allQuestions, missedQuestions) {
     startMissedButton.addEventListener('click', () => startQuiz('missed', missedQuestions));
     startAllButton.addEventListener('click', () => startQuiz('all', pickAllQuestionRound()));
     startAiButton.addEventListener('click', generateAiQuestions);
+    studyTabButton.addEventListener('click', () => setStartTab('study'));
+    aiTabButton.addEventListener('click', () => setStartTab('ai'));
 
     startMissedCount.textContent = \`\${missedQuestions.length} previously missed question\${missedQuestions.length === 1 ? '' : 's'}\`;
     startAllCount.textContent = \`\${allQuestions.length} total supported question\${allQuestions.length === 1 ? '' : 's'}\`;
