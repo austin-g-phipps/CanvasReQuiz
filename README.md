@@ -2,7 +2,14 @@
 
 <b>THIS PROJECT WAS BUILT FOR PERSONAL NECESSITY SO PLEASE LET ME KNOW IF YOU HAVE ISSUES</b>
 
-I built this project using Codex so I could study Canvas quizzes that I knew would be reused on my midterm. The program will work with uploaded canvas quizzes (which you can save by pressing ctrl+s on the graded quiz page) which you should save directly to the root of this project. The saved canvas quiz should have an html file and another content folder that stores assets necessary for the canvas quiz's html to load. This tool should work for any Canvas quiz uploaded this way, but I have only tested on my own quizzes so far. The program is tuned to work better with coding quizzes, so if you are using this project for a different subject, it may be necessary to download this repo and tweak the way the build file works. Furthermore, I don't believe the program currently works with textbox questions where the answer would be manually graded.
+I built this project using Codex so I could study Canvas quizzes that I knew would be reused on my midterm. The program will work with uploaded Canvas quizzes saved from the graded quiz page with `Ctrl+S`, and those files should be placed directly in the root of this project. Each saved quiz needs an HTML file plus its matching asset folder. This tool should work for any Canvas quiz uploaded this way, but I have only tested on my own quizzes so far. The program is tuned to work better with coding quizzes, so if you are using this project for a different subject, it may be necessary to download this repo and tweak the way the build file works. Furthermore, I don't believe the program currently works with textbox questions where the answer would be manually graded.
+
+Recommended upload formats:
+
+- Default Canvas save names, such as `Quiz 1 - Review.html` with `Quiz 1 - Review_files`
+- Renamed pairs, such as `quiz1.html` with `quiz1contextFolder`
+
+The HTML file and its matching folder must stay together in the project root.
 
 CanvasReQuiz is a small local quiz generator that turns saved Canvas quiz review pages into a standalone `practice-quiz.html` study page. It extracts questions you already answered in Canvas, rebuilds them into a cleaner practice interface, shuffles answer order for each round, and lets you retry only the questions you miss.
 
@@ -25,7 +32,12 @@ When you run the builder, it scans the archived quiz folders, pulls out question
 
 ## How It Works
 
-`build-practice-quiz.js` scans Canvas export folders ending in `_files`, finds the HTML file inside each folder that actually contains quiz question markup, and uses that as the source of truth.
+`build-practice-quiz.js` discovers quiz sources in two ways:
+
+- It reads top-level saved quiz HTML files and pairs them with either their default Canvas asset folder or a renamed folder such as `quiz1contextFolder`.
+- It also falls back to scanning quiz HTML files found inside asset folders when needed.
+
+In both cases, it looks for graded Canvas quiz markup and uses that as the source of truth.
 
 For each supported question block, the script:
 
@@ -115,7 +127,7 @@ Default models in this repo:
 - `build-practice-quiz.js`: Node.js builder that parses the saved Canvas quiz pages and generates the practice page.
 - `practice-quiz.html`: Generated quiz UI.
 - `quiz-ai-config.js`: Optional browser config for AI defaults.
-- `Quiz *_  <name>.html` and `Quiz *_ <user_name>_files/`: Saved Canvas quiz pages and their assets.
+- Saved quiz uploads: either the default Canvas HTML + `_files` folder pair, or a renamed pair like `quiz1.html` + `quiz1contextFolder`.
 
 ## How To Run
 
@@ -130,6 +142,8 @@ node build-practice-quiz.js
 ```
 
 Then open `practice-quiz.html` in a browser.
+
+If the builder says no supported Canvas quiz questions were found, first verify that each uploaded quiz is present as a matching HTML file and asset folder pair in the project root.
 
 If AI generation fails while opening the file directly from disk, serve the folder over `http://localhost` instead. The page already warns about possible browser restrictions in `file://` mode.
 

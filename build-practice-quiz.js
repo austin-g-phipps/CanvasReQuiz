@@ -3,6 +3,7 @@ const path = require('path');
 
 const ROOT = process.cwd();
 const QUESTION_HOLDER_MARKER = '<div role="region" aria-label="Question" class="quiz_sortable question_holder ';
+const QUESTION_HOLDER_REGEX = /<div[^>]*class="[^"]*\bquestion_holder\b[^"]*"[^>]*>/gi;
 
 function decodeHtml(value = '') {
   return value
@@ -33,9 +34,23 @@ function normalizeSpace(value = '') {
 }
 
 function rewriteAssetPaths(html, folderName) {
+  if (!folderName) {
+    return html;
+  }
+
   return html
-    .replace(/(src|href)="\.\/([^"]+)"/g, `$1="./${folderName}/$2"`)
-    .replace(/url\(\.\/([^)]+)\)/g, `url(./${folderName}/$1)`);
+    .replace(/(src|href)="\.\/([^"]+)"/g, (_, attr, assetPath) => {
+      if (assetPath.includes('/')) {
+        return `${attr}="./${assetPath}"`;
+      }
+      return `${attr}="./${folderName}/${assetPath}"`;
+    })
+    .replace(/url\(\.\/([^)]+)\)/g, (_, assetPath) => {
+      if (assetPath.includes('/')) {
+        return `url(./${assetPath})`;
+      }
+      return `url(./${folderName}/${assetPath})`;
+    });
 }
 
 function cleanupFragmentHtml(html) {
@@ -55,21 +70,29 @@ function serializeForInlineScript(value) {
 
 function findQuestionHolders(html) {
   const indexes = [];
-  let start = 0;
+  let markerIndex = html.indexOf(QUESTION_HOLDER_MARKER);
 
-  while (true) {
-    const index = html.indexOf(QUESTION_HOLDER_MARKER, start);
-    if (index === -1) {
-      break;
+  if (markerIndex !== -1) {
+    let start = 0;
+    while (markerIndex !== -1) {
+      indexes.push(markerIndex);
+      start = markerIndex + QUESTION_HOLDER_MARKER.length;
+      markerIndex = html.indexOf(QUESTION_HOLDER_MARKER, start);
     }
-    indexes.push(index);
-    start = index + QUESTION_HOLDER_MARKER.length;
+  } else {
+    indexes.push(...[...html.matchAll(QUESTION_HOLDER_REGEX)].map(match => match.index).filter(Number.isInteger));
   }
 
   return indexes.map((index, position) => {
     const nextIndex = indexes[position + 1] ?? html.length;
     return html.slice(index, nextIndex);
   });
+}
+
+function containsQuizMarkup(html = '') {
+  return html.includes(QUESTION_HOLDER_MARKER)
+    || /<div[^>]*class="[^"]*\bquestion_holder\b[^"]*"[^>]*>/i.test(html)
+    || /display_question question [^"]* (?:correct|incorrect) bordered/.test(html);
 }
 
 function getBetween(block, startMarker, endMarker) {
@@ -283,52 +306,139 @@ function parseQuestionBlock(block, folderName, quizLabel) {
   return parseMultipleChoiceQuestion(block, meta);
 }
 
-function collectQuestions() {
-  const quizDirs = fs.readdirSync(ROOT)
-    .filter(name => {
-      const folderPath = path.join(ROOT, name);
-      return fs.statSync(folderPath).isDirectory() && /_files$/i.test(name);
-    })
+function sortHtmlNames(left, right) {
+  const leftNumeric = /^\d+\.html$/i.test(left) ? 0 : 1;
+  const rightNumeric = /^\d+\.html$/i.test(right) ? 0 : 1;
+
+  if (leftNumeric !== rightNumeric) {
+    return leftNumeric - rightNumeric;
+  }
+
+  return left.localeCompare(right);
+}
+
+function normalizeName(value = '') {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function guessAssetFolderNameFromHtml(html) {
+  const folderMatch = html.match(/(?:src|href)=["']\.\/([^/"']+(?:_files|contextFolder))\//i);
+  return folderMatch ? folderMatch[1] : '';
+}
+
+function findPairedFolderName(baseName, directoryNames, sourceHtml = '') {
+  const normalizedBase = normalizeName(baseName);
+  const guessedFolderName = guessAssetFolderNameFromHtml(sourceHtml);
+
+  if (guessedFolderName && directoryNames.includes(guessedFolderName)) {
+    return guessedFolderName;
+  }
+
+  const exactCandidates = [
+    `${baseName}_files`,
+    `${baseName}contextFolder`,
+    `${baseName}_contextFolder`,
+    `${baseName}-contextFolder`,
+  ];
+
+  for (const candidate of exactCandidates) {
+    if (directoryNames.includes(candidate)) {
+      return candidate;
+    }
+  }
+
+  return directoryNames.find(name => {
+    const normalizedDir = normalizeName(name);
+    return normalizedDir === `${normalizedBase}files`
+      || normalizedDir === `${normalizedBase}contextfolder`;
+  }) || '';
+}
+
+function getQuizLabelFromBaseName(baseName) {
+  return baseName
+    .replace(/\s+/g, ' ')
+    .trim() || 'Canvas Quiz';
+}
+
+function discoverQuizSources() {
+  const entries = fs.readdirSync(ROOT, { withFileTypes: true });
+  const directoryNames = entries
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
     .sort();
+  const consumedFolders = new Set();
+
+  const htmlSources = entries
+    .filter(entry => entry.isFile() && /\.html$/i.test(entry.name) && entry.name !== 'practice-quiz.html')
+    .map(entry => entry.name)
+    .sort(sortHtmlNames)
+    .map(htmlFileName => {
+      const htmlPath = path.join(ROOT, htmlFileName);
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      if (!containsQuizMarkup(html)) {
+        return null;
+      }
+
+      const baseName = path.basename(htmlFileName, path.extname(htmlFileName));
+      const folderName = findPairedFolderName(baseName, directoryNames, html);
+      if (folderName) {
+        consumedFolders.add(folderName);
+      }
+
+      return {
+        htmlPath,
+        html,
+        folderName,
+        quizLabel: getQuizLabelFromBaseName(baseName),
+      };
+    })
+    .filter(Boolean);
+
+  const folderSources = directoryNames
+    .filter(folderName => !consumedFolders.has(folderName))
+    .map(folderName => {
+      const folderPath = path.join(ROOT, folderName);
+      const htmlFileName = fs.readdirSync(folderPath)
+        .filter(name => /\.html$/i.test(name))
+        .sort(sortHtmlNames)
+        .find(name => {
+          const htmlPath = path.join(folderPath, name);
+          const html = fs.readFileSync(htmlPath, 'utf8');
+          return containsQuizMarkup(html);
+        });
+
+      if (!htmlFileName) {
+        return null;
+      }
+
+      const htmlPath = path.join(folderPath, htmlFileName);
+      const html = fs.readFileSync(htmlPath, 'utf8');
+      return {
+        htmlPath,
+        html,
+        folderName,
+        quizLabel: getQuizLabelFromBaseName(folderName.replace(/(_files|contextFolder)$/i, '')),
+      };
+    })
+    .filter(Boolean);
+
+  return [...htmlSources, ...folderSources];
+}
+
+function collectQuestions() {
+  const quizSources = discoverQuizSources();
   const questions = [];
 
-  for (const folderName of quizDirs) {
-    const folderPath = path.join(ROOT, folderName);
-    const htmlFileName = fs.readdirSync(folderPath)
-      .filter(name => /\.html$/i.test(name))
-      .sort((left, right) => {
-        const leftNumeric = /^\d+\.html$/i.test(left) ? 0 : 1;
-        const rightNumeric = /^\d+\.html$/i.test(right) ? 0 : 1;
-
-        if (leftNumeric !== rightNumeric) {
-          return leftNumeric - rightNumeric;
-        }
-
-        return left.localeCompare(right);
-      })
-      .find(name => {
-        const htmlPath = path.join(folderPath, name);
-        const html = fs.readFileSync(htmlPath, 'utf8');
-        return html.includes(QUESTION_HOLDER_MARKER);
-      });
-
-    if (!htmlFileName) {
-      continue;
-    }
-
-    const htmlPath = path.join(folderPath, htmlFileName);
-    const quizLabel = folderName
-      .replace(/_files$/i, '')
-      .replace(/_[^_]+$/, '');
-    const html = fs.readFileSync(htmlPath, 'utf8');
-    const holders = findQuestionHolders(html);
+  for (const source of quizSources) {
+    const holders = findQuestionHolders(source.html);
 
     for (const holder of holders) {
-      questions.push(...parseQuestionBlock(holder, folderName, quizLabel));
+      questions.push(...parseQuestionBlock(holder, source.folderName, source.quizLabel));
     }
   }
 
   return {
+    quizSources,
     allQuestions: questions,
     missedQuestions: questions.filter(question => question.wasMissed),
   };
@@ -1704,10 +1814,14 @@ function buildHtml(allQuestions, missedQuestions) {
 }
 
 function main() {
-  const { allQuestions, missedQuestions } = collectQuestions();
+  const { quizSources, allQuestions, missedQuestions } = collectQuestions();
 
   if (!allQuestions.length) {
-    throw new Error('No incorrect questions were found in the saved quiz pages.');
+    throw new Error(
+      `No supported Canvas quiz questions were found. Found ${quizSources.length} candidate quiz source` +
+      `${quizSources.length === 1 ? '' : 's'}, but none contained supported graded question blocks. ` +
+      'Upload the saved quiz HTML file plus its matching asset folder. Supported pairs include the default Canvas save names or a renamed pair like quiz1.html + quiz1contextFolder.'
+    );
   }
 
   const html = buildHtml(allQuestions, missedQuestions);
