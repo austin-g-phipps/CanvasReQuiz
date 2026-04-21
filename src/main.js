@@ -7,181 +7,213 @@ const AI_STORAGE_KEY = 'practiceQuizAiConfig';
 document.querySelector('#app').innerHTML = `
   <header class="topbar">
     <div class="topbar-inner">
-      <h1>CanvasReQuiz</h1>
-      <p>Upload saved Canvas quiz reviews, build a practice bank in the browser, then study missed questions, random rounds, or AI-generated review prompts.</p>
+      <div>
+        <h1>CanvasReQuiz</h1>
+        <p>Upload saved Canvas quiz reviews, build a practice bank in the browser, then study them in separate quiz and AI generation screens.</p>
+      </div>
+      <nav class="app-nav" aria-label="App sections">
+        <button class="nav-button active" id="nav-upload-button" type="button">Upload</button>
+        <button class="nav-button" id="nav-study-button" type="button" disabled>Quiz</button>
+        <button class="nav-button" id="nav-generate-button" type="button" disabled>AI Mode (beta)</button>
+      </nav>
     </div>
   </header>
 
   <main class="page">
-    <section class="start-shell" id="start-shell">
-      <div class="start-card">
-        <div class="start-head">
-          <h2>Start By Uploading Your Canvas Quizzes</h2>
-          <p>This deployment starts empty on purpose. Build your own quiz set from saved Canvas review pages, directly in the browser.</p>
+    <section class="view-shell active" id="upload-view">
+      <div class="section-card hero-card">
+        <div class="hero-copy">
+          <div class="section-eyebrow">Step 1</div>
+          <h2>Upload Your Canvas Quiz Files</h2>
+          <p>This app starts empty. Build your own question bank by uploading saved Canvas quiz review pages and their matching context folders.</p>
         </div>
+      </div>
 
-        <section class="upload-shell">
-          <div class="upload-grid">
-            <article class="instruction-card">
-              <div class="section-eyebrow">Before Uploading</div>
-              <h3>Prepare each quiz like this</h3>
-              <ol class="instruction-list">
-                <li>Open the graded Canvas quiz review page you want to study and press <code>Ctrl+S</code> to save the page.</li>
-                <li>Rename the saved HTML file to something like <code>quiz1.html</code>.</li>
-                <li>Rename the matching asset folder to something like <code>quiz1contextFolder</code>.</li>
-                <li>Put each HTML file and its matching context folder into one local parent folder, the same way you would place them in the project root when running locally.</li>
-                <li>Upload that parent folder below, then press <strong>Build Quizzes</strong>.</li>
-              </ol>
-              <div class="inline-note">The browser app cannot write into a real project root on a deployed site, so it recreates that root-style layout in memory after upload.</div>
-            </article>
+      <div class="upload-layout">
+        <article class="section-card instruction-card">
+          <div class="section-eyebrow">Instructions</div>
+          <h3>Prepare each quiz like this</h3>
+          <ol class="instruction-list">
+            <li>Open the graded Canvas quiz review page you want to study and press <code>Ctrl+S</code>.</li>
+            <li>Rename the saved HTML file to something like <code>quiz1.html</code>.</li>
+            <li>Rename the matching asset folder to something like <code>quiz1contextFolder</code>.</li>
+            <li>Put each HTML file and matching folder inside one local parent folder.</li>
+            <li>Upload that parent folder below and press <strong>Build Quizzes</strong>.</li>
+          </ol>
+          <div class="inline-note">The deployed app cannot write to a real project root, so it recreates that root-style file layout in memory after upload.</div>
+        </article>
 
-            <article class="upload-card">
-              <div class="section-eyebrow">Upload Package</div>
-              <h3>Choose a folder that contains your quiz HTML files and context folders</h3>
-              <p class="upload-copy">Example package contents: <code>quiz1.html</code>, <code>quiz1contextFolder/</code>, <code>quiz2.html</code>, <code>quiz2contextFolder/</code>.</p>
-              <label class="upload-drop" for="package-upload">
-                <input id="package-upload" type="file" webkitdirectory directory multiple>
-                <span class="upload-title">Select quiz package folder</span>
-                <span class="upload-subtitle">All processing stays in your browser. No server-side quiz upload is required.</span>
-              </label>
-              <div class="button-row upload-actions">
-                <button class="button-primary" id="build-button" type="button" disabled>Build Quizzes</button>
-                <button class="button-secondary" id="clear-upload-button" type="button" disabled>Clear Uploads</button>
-              </div>
-              <div class="build-status" id="build-status" aria-live="polite">No quiz package loaded yet.</div>
-            </article>
+        <article class="section-card upload-card">
+          <div class="section-eyebrow">Upload Package</div>
+          <h3>Choose the folder that contains your quiz HTML files and context folders</h3>
+          <p class="upload-copy">Example contents: <code>quiz1.html</code>, <code>quiz1contextFolder/</code>, <code>quiz2.html</code>, <code>quiz2contextFolder/</code>.</p>
+
+          <label class="upload-drop" for="package-upload">
+            <input id="package-upload" type="file" webkitdirectory directory multiple>
+            <span class="upload-drop-eyebrow">Folder Upload</span>
+            <span class="upload-drop-title">UPLOAD FILES HERE</span>
+            <span class="upload-drop-subtitle">Click this area and choose the parent folder that contains your quiz HTML files and context folders.</span>
+          </label>
+
+          <div class="button-row upload-actions">
+            <button class="button-primary" id="build-button" type="button" disabled>Build Quizzes</button>
+            <button class="button-secondary" id="clear-upload-button" type="button" disabled>Clear Uploads</button>
           </div>
 
-          <div class="upload-summary-card">
-            <div class="upload-summary-head">
-              <div>
-                <div class="section-eyebrow">Current Upload</div>
-                <h3>Package Summary</h3>
-              </div>
-              <div class="pill-row">
-                <div class="pill" id="uploaded-html-pill">0 html files</div>
-                <div class="pill" id="uploaded-folder-pill">0 folders</div>
-                <div class="pill" id="uploaded-file-pill">0 total files</div>
-              </div>
-            </div>
-            <div class="upload-list empty" id="upload-list">Select a folder to see the discovered HTML files and asset folders.</div>
+          <div class="build-status" id="build-status" aria-live="polite">No quiz package loaded yet.</div>
+        </article>
+      </div>
+
+      <section class="section-card upload-summary-card">
+        <div class="upload-summary-head">
+          <div>
+            <div class="section-eyebrow">Current Upload</div>
+            <h3>Package Summary</h3>
           </div>
-        </section>
-
-        <div class="start-tabs" role="tablist" aria-label="Study mode groups">
-          <button class="start-tab active" id="study-tab-button" type="button" role="tab" aria-selected="true" aria-controls="study-panel">Study Modes</button>
-          <button class="start-tab" id="ai-tab-button" type="button" role="tab" aria-selected="false" aria-controls="ai-panel-tab">AI Mode <span class="beta-badge">Beta</span></button>
-        </div>
-
-        <div class="start-panel active" id="study-panel" role="tabpanel" aria-labelledby="study-tab-button">
-          <div class="mode-grid">
-            <div class="mode-card">
-              <h3>Missed Before</h3>
-              <p>Builds a review round from questions Canvas marked incorrect in your uploaded quiz package.</p>
-              <div class="mode-stats">
-                <div class="pill" id="start-missed-count">0 previously missed questions</div>
-              </div>
-              <button class="button-primary" id="start-missed-button" type="button" disabled>Start Missed-Only Quiz</button>
-            </div>
-
-            <div class="mode-card">
-              <h3>All Questions</h3>
-              <p>Builds a 20-question random round from every supported question found in your uploaded quizzes.</p>
-              <div class="mode-stats">
-                <div class="pill" id="start-all-count">0 total supported questions</div>
-                <div class="pill">20 random questions per run</div>
-              </div>
-              <button class="button-primary" id="start-all-button" type="button" disabled>Start 20 Random Questions</button>
-            </div>
+          <div class="pill-row">
+            <div class="pill" id="uploaded-html-pill">0 html files</div>
+            <div class="pill" id="uploaded-folder-pill">0 folders</div>
+            <div class="pill" id="uploaded-file-pill">0 total files</div>
           </div>
         </div>
+        <div class="upload-list empty" id="upload-list">Select a folder to see the discovered HTML files and asset folders.</div>
+      </section>
+    </section>
 
-        <div class="start-panel" id="ai-panel-tab" role="tabpanel" aria-labelledby="ai-tab-button">
-          <div class="mode-card">
-            <h3>AI-Generated Review <span class="beta-badge">Beta</span></h3>
-            <p>Uses your missed questions as source material, then asks Codex or Gemini to create similar fresh prompts.</p>
-            <div class="mode-stats">
-              <div class="pill" id="start-ai-count">Based on 0 missed source questions</div>
-              <div class="pill">Supports OpenAI and Gemini</div>
-            </div>
-            <div class="ai-panel">
-              <div class="provider-stack">
-                <div class="provider-card">
-                  <h4>OpenAI / Codex</h4>
-                  <div class="ai-grid">
-                    <div class="field">
-                      <label for="ai-token-input">API Token</label>
-                      <input id="ai-token-input" type="password" placeholder="sk-..." autocomplete="off">
-                      <div class="field-help">Users can paste their own token here. A default can also be set in <code>public/quiz-ai-config.js</code>.</div>
-                    </div>
-                    <div class="field">
-                      <label for="ai-model-input">Model</label>
-                      <input id="ai-model-input" type="text" value="gpt-5.2-codex" autocomplete="off">
-                      <div class="field-help">Change the model per user if needed.</div>
-                    </div>
-                  </div>
-                </div>
+    <section class="view-shell" id="study-view">
+      <div class="section-card page-head-card">
+        <div>
+          <div class="section-eyebrow">Step 2</div>
+          <h2>Quiz Modes</h2>
+          <p>Choose a study round built from your uploaded Canvas quizzes.</p>
+        </div>
+        <div class="page-head-actions">
+          <button class="button-secondary" id="study-upload-button" type="button">Back To Uploads</button>
+          <button class="button-secondary" id="study-generate-button" type="button" disabled>Go To Generate</button>
+        </div>
+      </div>
 
-                <div class="provider-card">
-                  <h4>Google Gemini</h4>
-                  <div class="ai-grid">
-                    <div class="field">
-                      <label for="gemini-token-input">Gemini API Token</label>
-                      <input id="gemini-token-input" type="password" placeholder="AIza..." autocomplete="off">
-                      <div class="field-help">If this is filled in, the page uses Gemini instead of OpenAI.</div>
-                    </div>
-                    <div class="field">
-                      <label for="gemini-model-input">Gemini Model</label>
-                      <input id="gemini-model-input" type="text" value="gemini-2.5-flash" autocomplete="off">
-                      <div class="field-help">This uses Gemini JSON mode through <code>generateContent</code>.</div>
-                    </div>
-                  </div>
-                </div>
+      <div class="mode-grid">
+        <article class="section-card mode-card">
+          <h3>Missed Before</h3>
+          <p>Builds a round from questions Canvas marked incorrect in your uploaded quiz package.</p>
+          <div class="mode-stats">
+            <div class="pill" id="start-missed-count">0 previously missed questions</div>
+          </div>
+          <button class="button-primary" id="start-missed-button" type="button" disabled>Start Missed-Only Quiz</button>
+        </article>
 
+        <article class="section-card mode-card">
+          <h3>All Questions</h3>
+          <p>Builds a 20-question random round from every supported question found in your uploaded quizzes.</p>
+          <div class="mode-stats">
+            <div class="pill" id="start-all-count">0 total supported questions</div>
+            <div class="pill">20 random questions per run</div>
+          </div>
+          <button class="button-primary" id="start-all-button" type="button" disabled>Start 20 Random Questions</button>
+        </article>
+      </div>
+
+      <section class="summary-bar" id="summary-bar">
+        <div class="pill-row">
+          <div class="pill" id="question-count-pill"></div>
+          <div class="pill" id="quiz-count-pill"></div>
+          <div class="pill" id="mode-pill"></div>
+          <div class="pill">Mode: Canvas-style review</div>
+        </div>
+      </section>
+
+      <section class="quiz-shell" id="quiz-shell">
+        <div class="toolbar">
+          <div class="toolbar-note">
+            Questions are shuffled each time you start over. The retry flow keeps only the ones you missed on your latest attempt.
+          </div>
+          <div class="button-row">
+            <button class="button-secondary" id="home-button" type="button">Back To Quiz Modes</button>
+            <button class="button-primary" id="submit-button" type="button">Submit Quiz</button>
+            <button class="button-secondary" id="retry-button" type="button" disabled>Retry Missed Only</button>
+            <button class="button-secondary" id="reset-button" type="button">Start Over</button>
+          </div>
+        </div>
+        <section class="result-banner" id="result-banner" aria-live="polite"></section>
+        <section class="question-list" id="question-list"></section>
+      </section>
+    </section>
+
+    <section class="view-shell" id="generate-view">
+      <div class="section-card page-head-card">
+        <div>
+          <div class="section-eyebrow">Step 3</div>
+          <h2>Generate Similar Questions</h2>
+          <p>Use your missed Canvas questions as source material for fresh AI-generated review questions.</p>
+        </div>
+        <div class="page-head-actions">
+          <button class="button-secondary" id="generate-upload-button" type="button">Back To Uploads</button>
+          <button class="button-secondary" id="generate-study-button" type="button" disabled>Go To Quiz</button>
+        </div>
+      </div>
+
+      <article class="section-card mode-card">
+        <h3>AI-Generated Review <span class="beta-badge">Beta</span></h3>
+        <p>Uses your missed questions as source material, then asks Codex or Gemini to create similar fresh prompts.</p>
+        <div class="mode-stats">
+          <div class="pill" id="start-ai-count">Based on 0 missed source questions</div>
+          <div class="pill">Supports OpenAI and Gemini</div>
+        </div>
+
+        <div class="ai-panel">
+          <div class="provider-stack">
+            <div class="provider-card">
+              <h4>OpenAI / Codex</h4>
+              <div class="ai-grid">
                 <div class="field">
-                  <label for="ai-count-input">Generated Questions</label>
-                  <input id="ai-count-input" type="number" min="5" max="20" value="10">
-                  <div class="field-help">Choose between 5 and 20 generated questions.</div>
+                  <label for="ai-token-input">API Token</label>
+                  <input id="ai-token-input" type="password" placeholder="sk-..." autocomplete="off">
+                  <div class="field-help">Users can paste their own token here. A default can also be set in <code>public/quiz-ai-config.js</code>.</div>
+                </div>
+                <div class="field">
+                  <label for="ai-model-input">Model</label>
+                  <input id="ai-model-input" type="text" value="gpt-5.2-codex" autocomplete="off">
+                  <div class="field-help">Change the model per user if needed.</div>
                 </div>
               </div>
+            </div>
 
-              <div class="checkbox-row">
-                <input id="ai-save-token-input" type="checkbox">
-                <label for="ai-save-token-input">Save entered tokens locally in this browser</label>
+            <div class="provider-card">
+              <h4>Google Gemini</h4>
+              <div class="ai-grid">
+                <div class="field">
+                  <label for="gemini-token-input">Gemini API Token</label>
+                  <input id="gemini-token-input" type="password" placeholder="AIza..." autocomplete="off">
+                  <div class="field-help">If this is filled in, the page uses Gemini instead of OpenAI.</div>
+                </div>
+                <div class="field">
+                  <label for="gemini-model-input">Gemini Model</label>
+                  <input id="gemini-model-input" type="text" value="gemini-2.5-flash" autocomplete="off">
+                  <div class="field-help">This uses Gemini JSON mode through <code>generateContent</code>.</div>
+                </div>
               </div>
+            </div>
 
-              <div class="inline-note">If a Gemini token is provided, Gemini is used. Otherwise the page falls back to OpenAI/Codex. Any token embedded in a static file is visible to anyone who can read that file.</div>
-              <button class="button-primary" id="start-ai-button" type="button" disabled>Generate Similar Questions</button>
-              <div class="ai-status" id="ai-status" aria-live="polite"></div>
+            <div class="field">
+              <label for="ai-count-input">Generated Questions</label>
+              <input id="ai-count-input" type="number" min="5" max="20" value="10">
+              <div class="field-help">Choose between 5 and 20 generated questions.</div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
 
-    <section class="summary-bar" id="summary-bar">
-      <div class="pill-row">
-        <div class="pill" id="question-count-pill"></div>
-        <div class="pill" id="quiz-count-pill"></div>
-        <div class="pill" id="mode-pill"></div>
-        <div class="pill">Mode: Canvas-style review</div>
-      </div>
-    </section>
+          <div class="checkbox-row">
+            <input id="ai-save-token-input" type="checkbox">
+            <label for="ai-save-token-input">Save entered tokens locally in this browser</label>
+          </div>
 
-    <section class="quiz-shell" id="quiz-shell">
-      <div class="toolbar">
-        <div class="toolbar-note">
-          Questions are shuffled each time you start over. The retry flow keeps only the ones you missed on your latest attempt.
+          <div class="inline-note">If a Gemini token is provided, Gemini is used. Otherwise the page falls back to OpenAI/Codex. Any token embedded in a static file is visible to anyone who can read that file.</div>
+          <div class="button-row">
+            <button class="button-primary" id="start-ai-button" type="button" disabled>Generate Similar Questions</button>
+          </div>
+          <div class="ai-status" id="ai-status" aria-live="polite"></div>
         </div>
-        <div class="button-row">
-          <button class="button-secondary" id="home-button" type="button">Go Home</button>
-          <button class="button-primary" id="submit-button" type="button">Submit Quiz</button>
-          <button class="button-secondary" id="retry-button" type="button" disabled>Retry Missed Only</button>
-          <button class="button-secondary" id="reset-button" type="button">Start Over</button>
-        </div>
-      </div>
-      <section class="result-banner" id="result-banner" aria-live="polite"></section>
-      <section class="question-list" id="question-list"></section>
+      </article>
     </section>
   </main>
 `;
@@ -198,13 +230,19 @@ const state = {
   lastResults: [],
   lastSubmitted: false,
   isGenerating: false,
+  currentView: 'upload',
 };
 
-const startShell = document.getElementById('start-shell');
-const studyTabButton = document.getElementById('study-tab-button');
-const aiTabButton = document.getElementById('ai-tab-button');
-const studyPanel = document.getElementById('study-panel');
-const aiPanelTab = document.getElementById('ai-panel-tab');
+const uploadView = document.getElementById('upload-view');
+const studyView = document.getElementById('study-view');
+const generateView = document.getElementById('generate-view');
+const navUploadButton = document.getElementById('nav-upload-button');
+const navStudyButton = document.getElementById('nav-study-button');
+const navGenerateButton = document.getElementById('nav-generate-button');
+const studyUploadButton = document.getElementById('study-upload-button');
+const studyGenerateButton = document.getElementById('study-generate-button');
+const generateUploadButton = document.getElementById('generate-upload-button');
+const generateStudyButton = document.getElementById('generate-study-button');
 const quizShell = document.getElementById('quiz-shell');
 const summaryBar = document.getElementById('summary-bar');
 const resultBanner = document.getElementById('result-banner');
@@ -320,6 +358,17 @@ function resetRuntimeObjectUrls() {
   state.runtimeObjectUrls = [];
 }
 
+function setView(viewName) {
+  state.currentView = viewName;
+  uploadView.className = viewName === 'upload' ? 'view-shell active' : 'view-shell';
+  studyView.className = viewName === 'study' ? 'view-shell active' : 'view-shell';
+  generateView.className = viewName === 'generate' ? 'view-shell active' : 'view-shell';
+  navUploadButton.className = viewName === 'upload' ? 'nav-button active' : 'nav-button';
+  navStudyButton.className = viewName === 'study' ? 'nav-button active' : 'nav-button';
+  navGenerateButton.className = viewName === 'generate' ? 'nav-button active' : 'nav-button';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function resetQuestionBank() {
   resetRuntimeObjectUrls();
   state.quizSources = [];
@@ -341,14 +390,21 @@ function resetQuestionBank() {
 function updateModeAvailability() {
   const allCount = state.allQuestions.length;
   const missedCount = state.missedQuestions.length;
+  const hasBuiltQuizBank = allCount > 0;
+  const hasMissed = missedCount > 0;
 
   startMissedCount.textContent = `${missedCount} previously missed question${missedCount === 1 ? '' : 's'}`;
   startAllCount.textContent = `${allCount} total supported question${allCount === 1 ? '' : 's'}`;
   startAiCount.textContent = `Based on ${missedCount} missed source question${missedCount === 1 ? '' : 's'}`;
 
-  startMissedButton.disabled = missedCount === 0;
-  startAllButton.disabled = allCount === 0;
-  startAiButton.disabled = state.isGenerating || missedCount === 0;
+  startMissedButton.disabled = !hasMissed;
+  startAllButton.disabled = !hasBuiltQuizBank;
+  startAiButton.disabled = state.isGenerating || !hasMissed;
+
+  navStudyButton.disabled = !hasBuiltQuizBank;
+  navGenerateButton.disabled = !hasBuiltQuizBank;
+  studyGenerateButton.disabled = !hasBuiltQuizBank;
+  generateStudyButton.disabled = !hasBuiltQuizBank;
 }
 
 function renderUploadSummary() {
@@ -417,6 +473,7 @@ function clearUploads() {
   clearUploadButton.disabled = true;
   setBuildStatus('No quiz package loaded yet.');
   setAiStatus('');
+  setView('upload');
 }
 
 function shuffle(items) {
@@ -449,20 +506,10 @@ function showQuizUi() {
   quizShell.className = 'quiz-shell visible';
 }
 
-function showHomeUi() {
+function showStudyHome() {
   summaryBar.className = 'summary-bar';
   quizShell.className = 'quiz-shell';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function setStartTab(tabName) {
-  const showingAi = tabName === 'ai';
-  studyTabButton.className = showingAi ? 'start-tab' : 'start-tab active';
-  aiTabButton.className = showingAi ? 'start-tab active' : 'start-tab';
-  studyTabButton.setAttribute('aria-selected', showingAi ? 'false' : 'true');
-  aiTabButton.setAttribute('aria-selected', showingAi ? 'true' : 'false');
-  studyPanel.className = showingAi ? 'start-panel' : 'start-panel active';
-  aiPanelTab.className = showingAi ? 'start-panel active' : 'start-panel';
+  setView('study');
 }
 
 function pickAllQuestionRound() {
@@ -476,6 +523,7 @@ function startQuiz(mode, questions) {
   state.lastResults = [];
   state.lastSubmitted = false;
   retryButton.disabled = true;
+  setView('study');
   showQuizUi();
   renderBanner();
   renderQuestions();
@@ -685,9 +733,11 @@ async function buildUploadedQuizzes() {
       + (state.missedQuestions.length ? ` ${state.missedQuestions.length} were marked incorrect in Canvas.` : ' No missed questions were detected in the uploaded review pages.'),
       'success'
     );
+    setView('study');
   } catch (error) {
     resetQuestionBank();
     setBuildStatus(error.message || 'Failed to build quizzes from the uploaded package.', 'error');
+    setView('upload');
   } finally {
     buildButton.disabled = state.uploadedEntries.length === 0;
   }
@@ -956,13 +1006,34 @@ async function generateAiQuestions() {
 packageUpload.addEventListener('change', event => handlePackageSelection(event.target.files));
 buildButton.addEventListener('click', buildUploadedQuizzes);
 clearUploadButton.addEventListener('click', clearUploads);
-studyTabButton.addEventListener('click', () => setStartTab('study'));
-aiTabButton.addEventListener('click', () => setStartTab('ai'));
+navUploadButton.addEventListener('click', () => setView('upload'));
+navStudyButton.addEventListener('click', () => {
+  if (!navStudyButton.disabled) {
+    showStudyHome();
+  }
+});
+navGenerateButton.addEventListener('click', () => {
+  if (!navGenerateButton.disabled) {
+    setView('generate');
+  }
+});
+studyUploadButton.addEventListener('click', () => setView('upload'));
+studyGenerateButton.addEventListener('click', () => {
+  if (!studyGenerateButton.disabled) {
+    setView('generate');
+  }
+});
+generateUploadButton.addEventListener('click', () => setView('upload'));
+generateStudyButton.addEventListener('click', () => {
+  if (!generateStudyButton.disabled) {
+    showStudyHome();
+  }
+});
 startMissedButton.addEventListener('click', () => startQuiz('missed', state.missedQuestions));
 startAllButton.addEventListener('click', () => startQuiz('all', pickAllQuestionRound()));
 startAiButton.addEventListener('click', generateAiQuestions);
 submitButton.addEventListener('click', submitQuiz);
-homeButton.addEventListener('click', showHomeUi);
+homeButton.addEventListener('click', showStudyHome);
 retryButton.addEventListener('click', retryMissedOnly);
 resetButton.addEventListener('click', () => {
   const nextQuestions = state.mode === 'missed'
@@ -976,6 +1047,7 @@ resetButton.addEventListener('click', () => {
 applyAiConfigDefaults();
 renderUploadSummary();
 updateModeAvailability();
+setView('upload');
 if (window.location.protocol === 'file:') {
   setAiStatus('Local file mode can trigger browser security restrictions for API calls. If generation fails, serve this folder over http://localhost instead.', '');
 }
