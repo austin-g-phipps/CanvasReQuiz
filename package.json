@@ -1,0 +1,15 @@
+{
+  "name": "canvasrequiz",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "quiz:build": "node build-practice-quiz.js",
+    "build": "vite build",
+    "build:fresh": "npm run quiz:build && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.9"
+  }
+}

@@ -11,7 +11,7 @@ Recommended upload formats:
 
 The HTML file and its matching folder must stay together in the project root.
 
-CanvasReQuiz is a small local quiz generator that turns saved Canvas quiz review pages into a standalone `practice-quiz.html` study page. It extracts questions you already answered in Canvas, rebuilds them into a cleaner practice interface, shuffles answer order for each round, and lets you retry only the questions you miss.
+CanvasReQuiz is now set up as a Vite project at the repo root. It turns saved Canvas quiz review pages into a browser study app and still emits a standalone `practice-quiz.html` copy for compatibility. It extracts questions you already answered in Canvas, rebuilds them into a cleaner practice interface, shuffles answer order for each round, and lets you retry only the questions you miss.
 
 ### AI MODE
 
@@ -26,7 +26,7 @@ I also wanted to make a mode that can make similar questions using the uploaded 
 The project has two parts:
 
 1. `build-practice-quiz.js` reads the saved Canvas quiz HTML files and converts them into a normalized question set.
-2. `practice-quiz.html` is the generated output that runs entirely in the browser and serves the practice experience.
+2. `index.html` is the generated Vite entry page that runs entirely in the browser and serves the practice experience. The builder also writes a matching `practice-quiz.html` file so the old standalone workflow still works.
 
 When you run the builder, it scans the archived quiz folders, pulls out question text, answer choices, correctness data, explanations, and referenced images, then embeds all of that into one self-contained HTML study page.
 
@@ -55,7 +55,7 @@ Supported parsing behavior:
 
 Unsupported or unrecognized question blocks are skipped instead of crashing the build.
 
-After extraction, the script writes a new `practice-quiz.html` file containing:
+After extraction, the script writes a new `index.html` file and a matching `practice-quiz.html` copy containing:
 
 - Embedded question data for all questions
 - A browser UI for quiz rounds
@@ -125,7 +125,8 @@ Default models in this repo:
 ## Files
 
 - `build-practice-quiz.js`: Node.js builder that parses the saved Canvas quiz pages and generates the practice page.
-- `practice-quiz.html`: Generated quiz UI.
+- `index.html`: Generated Vite entry UI.
+- `practice-quiz.html`: Standalone compatibility copy of the generated UI.
 - `quiz-ai-config.js`: Optional browser config for AI defaults.
 - Saved quiz uploads: either the default Canvas HTML + `_files` folder pair, or a renamed pair like `quiz1.html` + `quiz1contextFolder`.
 
@@ -135,13 +136,37 @@ Prerequisite:
 
 - Node.js installed locally
 
-Build the practice page:
+Install dependencies:
 
 ```powershell
-node build-practice-quiz.js
+npm install
 ```
 
-Then open `practice-quiz.html` in a browser.
+Regenerate the quiz page from saved Canvas exports:
+
+```powershell
+npm run quiz:build
+```
+
+Run the Vite dev server:
+
+```powershell
+npm run dev
+```
+
+Create a production build:
+
+```powershell
+npm run build
+```
+
+If you have fresh Canvas uploads in the root and want to regenerate the quiz page before bundling, use:
+
+```powershell
+npm run build:fresh
+```
+
+You can still open `practice-quiz.html` directly in a browser if you want the old standalone file-based flow, but the primary project entry is now Vite's `index.html`.
 
 If the builder says no supported Canvas quiz questions were found, first verify that each uploaded quiz is present as a matching HTML file and asset folder pair in the project root.
 

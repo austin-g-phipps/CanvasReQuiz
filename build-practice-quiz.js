@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = process.cwd();
+const GENERATED_HTML_FILES = new Set(['index.html', 'practice-quiz.html']);
+const IGNORED_SOURCE_DIRS = new Set(['.git', 'dist', 'node_modules']);
 const QUESTION_HOLDER_MARKER = '<div role="region" aria-label="Question" class="quiz_sortable question_holder ';
 const QUESTION_HOLDER_REGEX = /<div[^>]*class="[^"]*\bquestion_holder\b[^"]*"[^>]*>/gi;
 
@@ -363,13 +365,13 @@ function getQuizLabelFromBaseName(baseName) {
 function discoverQuizSources() {
   const entries = fs.readdirSync(ROOT, { withFileTypes: true });
   const directoryNames = entries
-    .filter(entry => entry.isDirectory())
+    .filter(entry => entry.isDirectory() && !IGNORED_SOURCE_DIRS.has(entry.name))
     .map(entry => entry.name)
     .sort();
   const consumedFolders = new Set();
 
   const htmlSources = entries
-    .filter(entry => entry.isFile() && /\.html$/i.test(entry.name) && entry.name !== 'practice-quiz.html')
+    .filter(entry => entry.isFile() && /\.html$/i.test(entry.name) && !GENERATED_HTML_FILES.has(entry.name))
     .map(entry => entry.name)
     .sort(sortHtmlNames)
     .map(htmlFileName => {
@@ -1825,10 +1827,19 @@ function main() {
   }
 
   const html = buildHtml(allQuestions, missedQuestions);
-  const outputPath = path.join(ROOT, 'practice-quiz.html');
-  fs.writeFileSync(outputPath, html, 'utf8');
+  const outputPaths = [
+    path.join(ROOT, 'index.html'),
+    path.join(ROOT, 'practice-quiz.html'),
+  ];
 
-  console.log(`Generated ${missedQuestions.length} missed-question items and ${allQuestions.length} total question items in ${outputPath}`);
+  for (const outputPath of outputPaths) {
+    fs.writeFileSync(outputPath, html, 'utf8');
+  }
+
+  console.log(
+    `Generated ${missedQuestions.length} missed-question items and ${allQuestions.length} total question items in ` +
+    outputPaths.map(outputPath => path.basename(outputPath)).join(' and ')
+  );
 }
 
 main();
