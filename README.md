@@ -11,7 +11,7 @@ Recommended upload formats:
 
 The HTML file and its matching folder must stay together in the project root.
 
-CanvasReQuiz is now set up as a Vite project at the repo root. It turns saved Canvas quiz review pages into a browser study app and still emits a standalone `practice-quiz.html` copy for compatibility. It extracts questions you already answered in Canvas, rebuilds them into a cleaner practice interface, shuffles answer order for each round, and lets you retry only the questions you miss.
+CanvasReQuiz is now set up as a Vite project at the repo root and is designed to start empty when deployed. Users upload their own saved Canvas quiz review pages in the browser, the app builds a question bank locally, and then it runs the same study flow from that uploaded content. The legacy builder still exists for local standalone generation.
 
 ### AI MODE
 
@@ -23,10 +23,10 @@ I also wanted to make a mode that can make similar questions using the uploaded 
 
 ## What The Program Does
 
-The project has two parts:
+The project now has two primary paths:
 
-1. `build-practice-quiz.js` reads the saved Canvas quiz HTML files and converts them into a normalized question set.
-2. `index.html` is the generated Vite entry page that runs entirely in the browser and serves the practice experience. The builder also writes a matching `practice-quiz.html` file so the old standalone workflow still works.
+1. Browser app: `index.html` + `src/` run in Vite and let users upload quiz packages directly from the browser.
+2. Legacy builder: `build-practice-quiz.js` reads saved Canvas quiz HTML files from disk and writes `index.html` and `practice-quiz.html` for the older local-file workflow.
 
 When you run the builder, it scans the archived quiz folders, pulls out question text, answer choices, correctness data, explanations, and referenced images, then embeds all of that into one self-contained HTML study page.
 
@@ -55,7 +55,16 @@ Supported parsing behavior:
 
 Unsupported or unrecognized question blocks are skipped instead of crashing the build.
 
-After extraction, the script writes a new `index.html` file and a matching `practice-quiz.html` copy containing:
+In the deployment-ready browser flow, users:
+
+- Save a graded Canvas quiz review with `Ctrl+S`
+- Rename the HTML file to something like `quiz1.html`
+- Rename the matching asset folder to something like `quiz1contextFolder`
+- Put the HTML files and folders into one local parent folder
+- Upload that folder through the site
+- Press `Build Quizzes`
+
+In the legacy builder flow, the script writes a new `index.html` file and a matching `practice-quiz.html` copy containing:
 
 - Embedded question data for all questions
 - A browser UI for quiz rounds
@@ -125,8 +134,10 @@ Default models in this repo:
 ## Files
 
 - `build-practice-quiz.js`: Node.js builder that parses the saved Canvas quiz pages and generates the practice page.
-- `index.html`: Generated Vite entry UI.
-- `practice-quiz.html`: Standalone compatibility copy of the generated UI.
+- `index.html`: Vite entry page for the deployment-ready browser app.
+- `src/`: Browser app source, including upload/build logic and quiz UI.
+- `public/quiz-ai-config.js`: Browser-side AI defaults for the deployed app.
+- `practice-quiz.html`: Standalone compatibility copy from the legacy builder flow.
 - `quiz-ai-config.js`: Optional browser config for AI defaults.
 - Saved quiz uploads: either the default Canvas HTML + `_files` folder pair, or a renamed pair like `quiz1.html` + `quiz1contextFolder`.
 
@@ -142,13 +153,7 @@ Install dependencies:
 npm install
 ```
 
-Regenerate the quiz page from saved Canvas exports:
-
-```powershell
-npm run quiz:build
-```
-
-Run the Vite dev server:
+Run the deployment-ready browser app:
 
 ```powershell
 npm run dev
@@ -160,13 +165,19 @@ Create a production build:
 npm run build
 ```
 
+If you want the old local generator flow, regenerate the quiz page from saved Canvas exports:
+
+```powershell
+npm run quiz:build
+```
+
 If you have fresh Canvas uploads in the root and want to regenerate the quiz page before bundling, use:
 
 ```powershell
 npm run build:fresh
 ```
 
-You can still open `practice-quiz.html` directly in a browser if you want the old standalone file-based flow, but the primary project entry is now Vite's `index.html`.
+You can still open `practice-quiz.html` directly in a browser if you want the old standalone file-based flow, but the primary deployed experience is now the Vite app in `index.html`.
 
 If the builder says no supported Canvas quiz questions were found, first verify that each uploaded quiz is present as a matching HTML file and asset folder pair in the project root.
 
