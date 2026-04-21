@@ -137,6 +137,10 @@ document.querySelector('#app').innerHTML = `
         </div>
         <section class="result-banner" id="result-banner" aria-live="polite"></section>
         <section class="question-list" id="question-list"></section>
+        <div class="quiz-footer-actions">
+          <button class="button-primary" id="submit-button-bottom" type="button">Submit Quiz</button>
+          <button class="button-secondary" id="reset-button-bottom" type="button">Start Over</button>
+        </div>
       </section>
     </section>
 
@@ -252,8 +256,10 @@ const quizCountPill = document.getElementById('quiz-count-pill');
 const modePill = document.getElementById('mode-pill');
 const homeButton = document.getElementById('home-button');
 const submitButton = document.getElementById('submit-button');
+const submitButtonBottom = document.getElementById('submit-button-bottom');
 const retryButton = document.getElementById('retry-button');
 const resetButton = document.getElementById('reset-button');
+const resetButtonBottom = document.getElementById('reset-button-bottom');
 const startMissedButton = document.getElementById('start-missed-button');
 const startAllButton = document.getElementById('start-all-button');
 const startAiButton = document.getElementById('start-ai-button');
@@ -704,6 +710,15 @@ function retryMissedOnly() {
   startQuiz(state.mode, missedQuestions);
 }
 
+function startOverCurrentQuiz() {
+  const nextQuestions = state.mode === 'missed'
+    ? [...state.missedQuestions]
+    : state.mode === 'all'
+      ? pickAllQuestionRound()
+      : [...state.sourceQuestions];
+  startQuiz(state.mode, nextQuestions);
+}
+
 async function buildUploadedQuizzes() {
   if (!state.uploadedEntries.length) {
     setBuildStatus('Upload a quiz package folder before building.', 'error');
@@ -1033,16 +1048,11 @@ startMissedButton.addEventListener('click', () => startQuiz('missed', state.miss
 startAllButton.addEventListener('click', () => startQuiz('all', pickAllQuestionRound()));
 startAiButton.addEventListener('click', generateAiQuestions);
 submitButton.addEventListener('click', submitQuiz);
+submitButtonBottom.addEventListener('click', submitQuiz);
 homeButton.addEventListener('click', showStudyHome);
 retryButton.addEventListener('click', retryMissedOnly);
-resetButton.addEventListener('click', () => {
-  const nextQuestions = state.mode === 'missed'
-    ? [...state.missedQuestions]
-    : state.mode === 'all'
-      ? pickAllQuestionRound()
-      : [...state.sourceQuestions];
-  startQuiz(state.mode, nextQuestions);
-});
+resetButton.addEventListener('click', startOverCurrentQuiz);
+resetButtonBottom.addEventListener('click', startOverCurrentQuiz);
 
 applyAiConfigDefaults();
 renderUploadSummary();
