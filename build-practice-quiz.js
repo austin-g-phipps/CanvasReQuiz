@@ -6,6 +6,14 @@ const GENERATED_HTML_FILES = new Set(['index.html', 'practice-quiz.html']);
 const IGNORED_SOURCE_DIRS = new Set(['.git', 'dist', 'node_modules']);
 const QUESTION_HOLDER_MARKER = '<div role="region" aria-label="Question" class="quiz_sortable question_holder ';
 const QUESTION_HOLDER_REGEX = /<div[^>]*class="[^"]*\bquestion_holder\b[^"]*"[^>]*>/gi;
+const INLINE_MIME_TYPES = new Map([
+  ['.gif', 'image/gif'],
+  ['.jpeg', 'image/jpeg'],
+  ['.jpg', 'image/jpeg'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+  ['.webp', 'image/webp'],
+]);
 
 function decodeHtml(value = '') {
   return value
@@ -35,23 +43,94 @@ function normalizeSpace(value = '') {
     .trim();
 }
 
-function rewriteAssetPaths(html, folderName) {
-  if (!folderName) {
-    return html;
+function normalizeAssetPath(value = '') {
+  return String(value)
+    .replace(/\\/g, '/')
+    .replace(/^\.?\//, '')
+    .replace(/\/+/g, '/')
+    .trim();
+}
+
+function cleanAssetPath(value = '') {
+  const withoutFragment = String(value).split('#')[0].split('?')[0];
+
+  try {
+    return normalizeAssetPath(decodeURIComponent(withoutFragment));
+  } catch {
+    return normalizeAssetPath(withoutFragment);
+  }
+}
+
+function assetBasename(value = '') {
+  const parts = normalizeAssetPath(value).split('/');
+  return parts[parts.length - 1] || '';
+}
+
+function fileToDataUri(filePath) {
+  const mimeType = INLINE_MIME_TYPES.get(path.extname(filePath).toLowerCase());
+
+  if (!mimeType) {
+    return '';
   }
 
+  return `data:${mimeType};base64,${fs.readFileSync(filePath).toString('base64')}`;
+}
+
+function getLocalAssetCandidates(assetPath, folderName) {
+  const cleaned = cleanAssetPath(assetPath).replace(/^file:\/+/i, '');
+  const fileName = assetBasename(cleaned);
+  const candidates = [];
+
+  if (folderName && !cleaned.includes('/')) {
+    candidates.push(path.join(ROOT, folderName, cleaned));
+  }
+
+  if (folderName && cleaned.includes('/') && fileName && !cleaned.startsWith(`${folderName}/`)) {
+    candidates.push(path.join(ROOT, folderName, fileName));
+  }
+
+  if (cleaned) {
+    candidates.push(path.join(ROOT, ...cleaned.split('/')));
+  }
+
+  return candidates;
+}
+
+function resolveAssetReference(assetPath, folderName) {
+  const rawPath = String(assetPath).trim();
+
+  if (!rawPath || /^(?:https?:|data:|blob:|mailto:|#)/i.test(rawPath)) {
+    return rawPath;
+  }
+
+  for (const candidate of getLocalAssetCandidates(rawPath, folderName)) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      const dataUri = fileToDataUri(candidate);
+
+      if (dataUri) {
+        return dataUri;
+      }
+    }
+  }
+
+  const cleaned = cleanAssetPath(rawPath);
+
+  if (folderName && cleaned && !cleaned.includes('/')) {
+    return `./${folderName}/${cleaned}`;
+  }
+
+  return cleaned ? `./${cleaned}` : rawPath;
+}
+
+function rewriteAssetPaths(html, folderName) {
   return html
-    .replace(/(src|href)="\.\/([^"]+)"/g, (_, attr, assetPath) => {
-      if (assetPath.includes('/')) {
-        return `${attr}="./${assetPath}"`;
-      }
-      return `${attr}="./${folderName}/${assetPath}"`;
+    .replace(/(src|href)=["']([^"']+)["']/g, (match, attr, assetPath) => {
+      const resolved = resolveAssetReference(assetPath, folderName);
+      return resolved && resolved !== assetPath ? `${attr}="${resolved}"` : match;
     })
-    .replace(/url\(\.\/([^)]+)\)/g, (_, assetPath) => {
-      if (assetPath.includes('/')) {
-        return `url(./${assetPath})`;
-      }
-      return `url(./${folderName}/${assetPath})`;
+    .replace(/url\((['"]?)([^)'"]+)\1\)/g, (match, quote, assetPath) => {
+      const resolved = resolveAssetReference(assetPath, folderName);
+      return resolved && resolved !== assetPath ? `url("${resolved}")` : match;
     });
 }
 
@@ -285,9 +364,10 @@ function parseQuestionBlock(block, folderName, quizLabel) {
     folderName
   );
 
+  const quizSlugSource = folderName || quizLabel || id;
   const meta = {
     id,
-    quizSlug: folderName.replace(/[^a-z0-9]+/gi, '-').toLowerCase(),
+    quizSlug: quizSlugSource.replace(/[^a-z0-9]+/gi, '-').toLowerCase(),
     folderName,
     quizLabel,
     questionLabel,
@@ -1119,7 +1199,7 @@ function buildHtml(allQuestions, missedQuestions) {
               <div class="pill">Supports OpenAI and Gemini</div>
             </div>
             <div class="ai-panel">
-              <div class="provider-stack">
+              <form class="provider-stack" id="ai-settings-form" autocomplete="off">
                 <div class="provider-card">
                   <h4>OpenAI / Codex</h4>
                   <div class="ai-grid">
@@ -1157,7 +1237,7 @@ function buildHtml(allQuestions, missedQuestions) {
                   <input id="ai-count-input" type="number" min="5" max="20" value="10">
                   <div class="field-help">Choose between 5 and 20 generated questions.</div>
                 </div>
-              </div>
+              </form>
               <div class="checkbox-row">
                 <input id="ai-save-token-input" type="checkbox">
                 <label for="ai-save-token-input">Save entered tokens locally in this browser</label>

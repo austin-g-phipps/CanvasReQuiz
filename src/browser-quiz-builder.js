@@ -37,6 +37,21 @@ function normalizePath(value = '') {
     .trim();
 }
 
+function cleanAssetPath(value = '') {
+  const withoutFragment = String(value).split('#')[0].split('?')[0];
+
+  try {
+    return normalizePath(decodeURIComponent(withoutFragment));
+  } catch {
+    return normalizePath(withoutFragment);
+  }
+}
+
+function assetBasename(value = '') {
+  const parts = normalizePath(value).split('/');
+  return parts[parts.length - 1] || '';
+}
+
 function cleanupFragmentHtml(html) {
   return html
     .replace(/^\s*<\/div>\s*/g, '')
@@ -158,20 +173,35 @@ function createAssetUrl(file, runtime) {
 }
 
 function resolveUploadedAssetPath(assetPath, folderName, runtime) {
-  const cleaned = normalizePath(assetPath).replace(/^file:\/\//i, '');
+  const rawPath = String(assetPath).trim();
 
-  if (!cleaned || /^https?:\/\//i.test(cleaned) || cleaned.startsWith('data:') || cleaned.startsWith('blob:')) {
+  if (!rawPath || /^(?:https?:|data:|blob:|mailto:|#)/i.test(rawPath)) {
     return '';
   }
 
+  const cleaned = cleanAssetPath(rawPath).replace(/^file:\/+/i, '');
+  const fileName = assetBasename(cleaned);
   const candidates = [];
+
   if (folderName && !cleaned.includes('/')) {
     candidates.push(`${folderName}/${cleaned}`);
   }
+
+  if (folderName && cleaned.includes('/') && fileName && !cleaned.startsWith(`${folderName}/`)) {
+    candidates.push(`${folderName}/${fileName}`);
+  }
+
   candidates.push(cleaned);
 
   for (const candidate of candidates) {
-    const resolved = runtime.assetUrls.get(candidate);
+    const resolved = runtime.assetUrls.get(normalizePath(candidate));
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  if (fileName) {
+    const resolved = runtime.assetBasenameUrls.get(fileName.toLowerCase());
     if (resolved) {
       return resolved;
     }
@@ -436,6 +466,7 @@ function discoverQuizSources(runtime) {
 async function buildRuntime(entries) {
   const htmlEntries = [];
   const assetUrls = new Map();
+  const assetBasenameUrls = new Map();
   const objectUrls = [];
 
   for (const entry of entries) {
@@ -447,13 +478,27 @@ async function buildRuntime(entries) {
       continue;
     }
 
-    assetUrls.set(entry.path, createAssetUrl(entry.file, { objectUrls }));
+    const objectUrl = createAssetUrl(entry.file, { objectUrls });
+    const normalizedPath = normalizePath(entry.path);
+    const fileName = assetBasename(normalizedPath).toLowerCase();
+
+    assetUrls.set(normalizedPath, objectUrl);
+
+    if (fileName) {
+      assetBasenameUrls.set(
+        fileName,
+        assetBasenameUrls.has(fileName) && assetBasenameUrls.get(fileName) !== objectUrl
+          ? ''
+          : objectUrl
+      );
+    }
   }
 
   return {
     entries,
     htmlEntries,
     assetUrls,
+    assetBasenameUrls,
     objectUrls,
   };
 }

@@ -166,7 +166,7 @@ document.querySelector('#app').innerHTML = `
         </div>
 
         <div class="ai-panel">
-          <div class="provider-stack">
+          <form class="provider-stack" id="ai-settings-form" autocomplete="off">
             <div class="provider-card">
               <h4>OpenAI / Codex</h4>
               <div class="ai-grid">
@@ -204,7 +204,7 @@ document.querySelector('#app').innerHTML = `
               <input id="ai-count-input" type="number" min="5" max="20" value="10">
               <div class="field-help">Choose between 5 and 20 generated questions.</div>
             </div>
-          </div>
+          </form>
 
           <div class="checkbox-row">
             <input id="ai-save-token-input" type="checkbox">
